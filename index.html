@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KASIRIN — Aplikasi Kasir untuk Warung & Kafe</title>
+<meta name="description" content="KASIRIN: aplikasi kasir + pembukuan otomatis untuk warung, kafe, dan restoran. Jalan offline, data tersimpan di HP kamu.">
+<link rel="icon" type="image/png" href="icon.png">
+<style>
+  :root{--navy:#0F2C56;--orange:#FF7A00;--tosca:#00C2A8;--bg:#F6F8FB;--ink:#101828;--muted:#5B6678;--line:#E2E7EF;--card:#fff}
+  @media (prefers-color-scheme:dark){:root{--bg:#0B1220;--ink:#EEF2F8;--muted:#9AA7BA;--line:#22304A;--card:#121B2E}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.55}
+  .wrap{max-width:560px;margin:0 auto;padding:32px 20px 48px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand img{width:52px;height:52px;object-fit:contain}
+  .brand b{font-size:26px;letter-spacing:-.01em;color:var(--navy)}
+  @media (prefers-color-scheme:dark){.brand b{color:#fff}}
+  .tag{font-size:11px;font-weight:700;letter-spacing:.22em;color:var(--tosca);margin-top:2px}
+  h1{font-size:clamp(26px,6vw,34px);line-height:1.15;margin:28px 0 10px;text-wrap:balance}
+  p.lead{color:var(--muted);margin:0 0 24px;font-size:16px}
+  .btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:16px 20px;border-radius:14px;background:var(--orange);color:#fff;font-weight:800;font-size:17px;text-decoration:none;box-shadow:0 6px 18px rgba(255,122,0,.28)}
+  .btn:focus-visible{outline:3px solid var(--navy);outline-offset:3px}
+  .meta{text-align:center;color:var(--muted);font-size:13px;margin:10px 0 28px}
+  ul.feat{list-style:none;padding:0;margin:0 0 28px;display:grid;gap:10px}
+  ul.feat li{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:14.5px}
+  ul.feat b{color:var(--navy)}
+  @media (prefers-color-scheme:dark){ul.feat b{color:var(--tosca)}}
+  h2{font-size:18px;margin:0 0 10px}
+  ol{margin:0 0 20px;padding-left:20px;color:var(--ink)}
+  ol li{margin:6px 0}
+  .note{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;font-size:13.5px;color:var(--muted)}
+  footer{margin-top:28px;text-align:center;font-size:12.5px;color:var(--muted)}
+  footer a{color:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <img src="logo.png" alt="Logo KASIRIN">
+    <div><b>KASIRIN</b><div class="tag">SMART · FAST · EASY</div></div>
+  </div>
+
+  <h1>Kasir dan pembukuan untuk warung &amp; kafe, langsung dari HP</h1>
+  <p class="lead">Catat penjualan, cetak struk, kelola stok, dan lihat laba rugi otomatis. Tetap jalan tanpa internet.</p>
+
+  <a class="btn" href="https://github.com/anggiadip123-maker/kasirin-download/releases/latest/download/KASIRIN.apk" download>⬇ Download KASIRIN (Android)</a>
+  <div class="meta">File APK &middot; sekitar 4 MB &middot; gratis dipakai</div>
+
+  <ul class="feat">
+    <li><b>Kasir cepat</b> — varian produk, scan barcode, pembayaran Cash / QRIS / Card</li>
+    <li><b>Meja &amp; Atas Nama</b> — pesanan berjalan, bayar di akhir</li>
+    <li><b>Pembukuan otomatis</b> — jurnal, laba rugi, neraca dari setiap transaksi</li>
+    <li><b>Data di HP kamu</b> — tidak butuh server, bisa backup &amp; restore</li>
+  </ul>
+
+  <h2>Cara install</h2>
+  <ol>
+    <li>Tekan tombol <b>Download</b> di atas, lalu buka file yang terunduh</li>
+    <li>Kalau HP menanyakan izin, pilih <b>Izinkan dari sumber ini</b></li>
+    <li>Tekan <b>Install</b>, lalu buka aplikasi KASIRIN</li>
+  </ol>
+  <div class="note">Android menampilkan peringatan untuk semua aplikasi yang dipasang di luar Play Store — itu normal. Aplikasi ini dibuat sendiri oleh pengembangnya dan tidak meminta akses kontak atau lokasi.</div>
+
+  <h2 style="margin-top:24px">Upgrade PRO</h2>
+  <p style="margin:0;color:var(--muted)">Versi gratis sampai 150 transaksi. PRO Rp99rb sekali bayar, tanpa batas transaksi. Hubungi
+    <a href="https://wa.me/628977031194?text=Halo%20kak%2C%20saya%20mau%20upgrade%20KASIRIN%20PRO" style="color:var(--orange);font-weight:700">WhatsApp 0897-7031-194</a>.</p>
+
+  <footer>&copy; KASIRIN</footer>
+</div>
+</body>
+</html>
