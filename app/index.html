@@ -761,7 +761,8 @@
             </div>
           </div>
           <p style="color:var(--muted);font-size:12px;margin:8px 0 0">Versi Gratis maksimal <strong id="freeLimitTxt"></strong> transaksi &amp; ada tulisan promosi kecil di struk. Upgrade PRO Rp99rb Lifetime untuk transaksi tanpa batas + struk bersih tanpa watermark.</p>
-          <div class="field" style="margin-top:10px"><label>Pesan Upgrade (salin &amp; kirim ke penjual)</label>
+          <div style="margin-top:12px"><button class="btn primary block" id="payFlowBtn" type="button">Bayar &amp; aktifkan PRO (DANA / QRIS)</button></div>
+          <div class="field" style="margin-top:10px"><label>Atau lewat WhatsApp (salin &amp; kirim ke penjual)</label>
             <textarea class="input mono" id="upgradeMsg" readonly rows="5" style="resize:vertical"></textarea>
             <div class="row-flex" style="margin-top:6px">
               <a class="btn primary sm" id="waUpgradeBtn" href="#" target="_blank" rel="noopener">💬 Chat WA Admin</a>
@@ -2439,10 +2440,69 @@
     modal({title:"Batas versi Gratis tercapai", okText:"Saya sudah punya kode",
       bodyHTML:`<p style="margin:0 0 12px;font-size:13.5px;line-height:1.6">Kamu sudah memakai ${FREE_TRANSACTION_LIMIT} transaksi gratis. Data dan laporan tetap aman dan bisa dibuka. Upgrade PRO untuk lanjut mencatat penjualan.</p>
         <div style="display:flex;justify-content:space-between;padding:10px 12px;margin-bottom:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);font-size:13.5px"><span>PRO, sekali bayar</span><strong>Rp99.000</strong></div>
-        <a class="btn primary block" style="text-decoration:none" id="limitWaBtn" href="${url}" target="_blank" rel="noopener">Upgrade lewat WhatsApp</a>`,
+        <button class="btn primary block" id="limitPayBtn" type="button" style="margin-bottom:8px">Bayar &amp; aktifkan PRO (DANA / QRIS)</button>
+        <a class="btn block" style="text-decoration:none" id="limitWaBtn" href="${url}" target="_blank" rel="noopener">Atau lewat WhatsApp</a>`,
       onOk:()=>{ goLicense(); }});
-    setTimeout(()=>{ const b=$("#limitWaBtn"); if(b) b.addEventListener("click",logUpgradeLead); },30);
+    setTimeout(()=>{ const b=$("#limitWaBtn"); if(b) b.addEventListener("click",logUpgradeLead);
+      const p=$("#limitPayBtn"); if(p) p.addEventListener("click",()=>{ const c=$("#modalCancel"); if(c) c.click(); setTimeout(showPayDialog,120); }); },30);
   }
+  const PAY_DANA_NUMBER="0897-7031-194", PAY_BASE=99000;
+  function payNominal(){
+    const k=getStoreLicenseKey()||""; let h=0;
+    for(let i=0;i<k.length;i++) h=(h*31+k.charCodeAt(i))%900;
+    return PAY_BASE+100+h;
+  }
+  async function activateFromCode(key){
+    const storeKey=getStoreLicenseKey();
+    if(!storeKey||key!==generateLicense(storeKey)) return false;
+    localStorage.setItem("kasirin_license",key);
+    audit("Aktivasi lisensi PRO","Toko "+S.settings.store+" (otomatis)");
+    renderLicense(); renderLimitNag();
+    return true;
+  }
+  function showPayDialog(){
+    const storeKey=getStoreLicenseKey();
+    if(!storeKey){ toast("Isi Nama Toko dulu di Profil Toko","bad"); return; }
+    const nom=payNominal(), nomTxt="Rp"+nom.toLocaleString("id-ID");
+    modal({title:"Bayar PRO lewat DANA / QRIS", okText:"Tutup",
+      bodyHTML:`<ol style="margin:0 0 12px;padding-left:18px;font-size:13.5px;line-height:1.7">
+          <li>Transfer <b>tepat ${nomTxt}</b> (angka unik untuk toko kamu) ke DANA <b>${PAY_DANA_NUMBER}</b>.</li>
+          <li>Ketuk <b>Saya sudah bayar</b>.</li>
+          <li>Setelah dicek penjual, ketuk <b>Cek aktivasi</b>. PRO aktif otomatis.</li></ol>
+        <div class="row-flex" style="margin-bottom:10px"><button class="btn sm" id="payCopyNo" type="button">Salin nomor DANA</button><button class="btn sm" id="payCopyNom" type="button">Salin nominal</button></div>
+        <button class="btn primary block" id="payPaidBtn" type="button" style="margin-bottom:8px">Saya sudah bayar</button>
+        <button class="btn block" id="payCheckBtn" type="button">Cek aktivasi</button>
+        <p id="payStatus" style="margin:10px 0 0;font-size:12.5px;color:var(--muted)">Butuh internet untuk langkah 2 dan 3.</p>`,
+      onOk:()=>{}});
+    setTimeout(()=>{
+      const st=msg=>{ const e=$("#payStatus"); if(e) e.textContent=msg; };
+      $("#payCopyNo").addEventListener("click",async()=>{ const ok=await copyText(PAY_DANA_NUMBER.replace(/-/g,"")); toast(ok?"Nomor disalin":"Gagal menyalin",ok?"good":"bad"); });
+      $("#payCopyNom").addEventListener("click",async()=>{ const ok=await copyText(String(nom)); toast(ok?"Nominal disalin":"Gagal menyalin",ok?"good":"bad"); });
+      $("#payPaidBtn").addEventListener("click",async()=>{
+        st("Mengirim...");
+        try{
+          const r=await fetch(UPGRADE_LOG_URL,{method:"POST",body:JSON.stringify({action:"paid",namaToko:S.settings.store||"",nominal:nom})});
+          const j=await r.json();
+          if(j.result==="lunas") st("Pembayaran sudah tercatat lunas. Ketuk Cek aktivasi.");
+          else if(j.result==="ok") st("Terkirim. Penjual akan mengecek, lalu ketuk Cek aktivasi (biasanya dalam beberapa menit-jam).");
+          else st("Gagal: "+(j.message||"coba lagi"));
+        }catch(e){ st("Gagal terhubung. Cek internet lalu coba lagi."); }
+      });
+      $("#payCheckBtn").addEventListener("click",async()=>{
+        st("Mengecek...");
+        try{
+          const r=await fetch(UPGRADE_LOG_URL+"?action=check&toko="+encodeURIComponent(S.settings.store||""));
+          const j=await r.json();
+          if(j.result==="ok" && j.kode){
+            if(await activateFromCode(j.kode)){ toast("KASIRIN PRO aktif! Terima kasih","good"); const c=$("#modalCancel")||$("#modalOk"); if(c) c.click(); }
+            else st("Kode tidak cocok dengan Nama Toko. Hubungi admin lewat WhatsApp.");
+          } else if(j.result==="pending") st("Belum dikonfirmasi penjual. Coba lagi nanti.");
+          else st("Belum ada pembayaran tercatat. Ketuk Saya sudah bayar dulu.");
+        }catch(e){ st("Gagal terhubung. Cek internet lalu coba lagi."); }
+      });
+    },30);
+  }
+  $("#payFlowBtn").addEventListener("click",showPayDialog);
   $("#waUpgradeBtn").addEventListener("click",logUpgradeLead);
   $("#copyDeviceId").addEventListener("click",async()=>{
     const ok=await copyText($("#deviceIdShow").value);
