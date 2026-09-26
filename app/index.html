@@ -529,6 +529,7 @@
 
     <!-- ============ DASHBOARD ============ -->
     <section class="view" id="view-dashboard">
+      <div id="limitNag"></div>
       <div id="backupNag"></div>
       <div class="kpi-grid" id="kpiGrid"></div>
       <div class="card card-p" style="margin-bottom:18px">
@@ -731,7 +732,7 @@
           <div class="toggle"><button class="switch" id="themeSwitch" aria-label="Mode gelap"></button><span>Mode gelap</span></div>
           <p style="color:var(--muted);margin:14px 0 0">Mengikuti sistem selama belum diubah. Preferensi disimpan di perangkat ini.</p>
         </div>
-        <div class="card card-p admin-only">
+        <div class="card card-p admin-only" id="licenseCard">
           <div class="acc-bar"><div class="section-title" style="margin:0">Lisensi</div><div class="spacer"></div><span id="licenseBadge"></span></div>
           <div class="field"><label>Kunci Lisensi (otomatis dari Nama Toko)</label>
             <div class="row-flex">
@@ -880,6 +881,7 @@
   const FREE_TRANSACTION_LIMIT = 150;
   const LICENSE_SECRET = "SAGOF99";
   const UPGRADE_WA_NUMBER = "628977031194";
+  const FREE_WARN_AT = 130;
   const UPGRADE_LOG_URL = "https://script.google.com/macros/s/AKfycbye6IHwnpUS0bUWwIoDhAMiyz8T9Qu1aXB1kjG05CehQULfOPGK5Aw0oQnH4O73O3Ny/exec";
   function getStoreLicenseKey(){
     return (S.settings.store||"").trim().toUpperCase().replace(/[^A-Z0-9]+/g,"");
@@ -1082,6 +1084,7 @@
 
   /* ================= DASHBOARD ================= */
   function renderDashboard(){
+    renderLimitNag();
     renderBackupNag();
     const tx=txToday();
     const cs=cashSummary();
@@ -1449,7 +1452,7 @@
     if(!S.cart.length){ toast("Keranjang kosong","bad"); return; }
     if(accLocked(todayStr())){ toast("Periode akuntansi sudah ditutup s/d "+S.acc.closedUntil,"bad"); return; }
     if(!checkPro() && S.transactions.filter(t=>t.type!=="RETUR").length>=FREE_TRANSACTION_LIMIT){
-      toast("Versi Gratis maksimal "+FREE_TRANSACTION_LIMIT+" transaksi. Upgrade ke PRO di User & Setting untuk transaksi tanpa batas.","bad");
+      showLimitDialog();
       return;
     }
     const c=cartCalc();
@@ -2362,14 +2365,46 @@
       badge.innerHTML='<span class="pill neutral">Versi Gratis</span>';
       wrap.style.display="";
     }
-    const waMsg = `Halo kak, saya mau upgrade KASIRIN PRO Rp99rb Lifetime.\n\nNama Toko: ${S.settings.store||"-"}\n\nMohon info cara pembayaran & kode aktivasinya ya.`;
+    const waMsg = upgradeWaMsg();
     msgEl.value = waMsg;
     const waBtn=$("#waUpgradeBtn");
     if(waBtn) waBtn.href = `https://wa.me/${UPGRADE_WA_NUMBER}?text=${encodeURIComponent(waMsg)}`;
   }
-  $("#waUpgradeBtn").addEventListener("click",()=>{
+  function upgradeWaMsg(){
+    return `Halo kak, saya mau upgrade KASIRIN PRO Rp99rb Lifetime.\n\nNama Toko: ${S.settings.store||"-"}\n\nMohon info cara pembayaran & kode aktivasinya ya.`;
+  }
+  function logUpgradeLead(){
     try{ fetch(UPGRADE_LOG_URL,{method:"POST",body:JSON.stringify({namaToko:S.settings.store||""})}).catch(()=>{}); }catch(e){}
-  });
+  }
+  const freeTxCount=()=>S.transactions.filter(t=>t.type!=="RETUR").length;
+  function goLicense(){
+    if(!can("setting")){ toast("Minta Admin memasukkan kode lisensi di User & Setting","bad"); return; }
+    location.hash="setting";
+    setTimeout(()=>{ const c=$("#licenseCard"); if(c&&c.scrollIntoView) c.scrollIntoView({behavior:"smooth",block:"center"}); },250);
+  }
+  function renderLimitNag(){
+    const el=$("#limitNag"); if(!el) return;
+    el.innerHTML="";
+    if(checkPro()) return;
+    const n=freeTxCount();
+    if(n<FREE_WARN_AT) return;
+    const left=FREE_TRANSACTION_LIMIT-n;
+    const txt = left>0
+      ? `<strong>Sisa ${left} transaksi gratis.</strong> Upgrade PRO supaya kasir tidak berhenti.`
+      : `<strong>Batas ${FREE_TRANSACTION_LIMIT} transaksi gratis tercapai.</strong> Upgrade PRO untuk lanjut mencatat penjualan.`;
+    el.innerHTML=`<div class="nag"><div class="nag-txt">${txt}</div>${can("setting")?'<button class="btn sm primary" id="limitNagBtn" type="button">Lihat PRO</button>':""}</div>`;
+    const b=$("#limitNagBtn"); if(b) b.addEventListener("click",goLicense);
+  }
+  function showLimitDialog(){
+    const url="https://wa.me/"+UPGRADE_WA_NUMBER+"?text="+encodeURIComponent(upgradeWaMsg());
+    modal({title:"Batas versi Gratis tercapai", okText:"Saya sudah punya kode",
+      bodyHTML:`<p style="margin:0 0 12px;font-size:13.5px;line-height:1.6">Kamu sudah memakai ${FREE_TRANSACTION_LIMIT} transaksi gratis. Data dan laporan tetap aman dan bisa dibuka. Upgrade PRO untuk lanjut mencatat penjualan.</p>
+        <div style="display:flex;justify-content:space-between;padding:10px 12px;margin-bottom:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);font-size:13.5px"><span>PRO, sekali bayar</span><strong>Rp99.000</strong></div>
+        <a class="btn primary block" style="text-decoration:none" id="limitWaBtn" href="${url}" target="_blank" rel="noopener">Upgrade lewat WhatsApp</a>`,
+      onOk:()=>{ goLicense(); }});
+    setTimeout(()=>{ const b=$("#limitWaBtn"); if(b) b.addEventListener("click",logUpgradeLead); },30);
+  }
+  $("#waUpgradeBtn").addEventListener("click",logUpgradeLead);
   $("#copyDeviceId").addEventListener("click",async()=>{
     const ok=await copyText($("#deviceIdShow").value);
     toast(ok?"Kunci lisensi disalin":"Gagal menyalin, salin manual", ok?"good":"bad");
