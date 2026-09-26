@@ -814,6 +814,12 @@
     <p class="setup-lead"><strong>Selamat datang!</strong> Isi data toko sekali saja. Semuanya otomatis tersimpan di Pengaturan, tidak perlu diisi dua kali.</p>
     <label class="field"><span>Nama Toko</span><input class="input" id="suStore" maxlength="40" autocomplete="off" placeholder="mis. Warung Bu Sari" /></label>
     <label class="field"><span>No. Telepon / WhatsApp</span><input class="input" id="suPhone" type="tel" inputmode="tel" maxlength="20" autocomplete="off" placeholder="08xxxxxxxxxx" /></label>
+    <label class="field"><span>Jenis Usaha</span>
+      <select class="input" id="suType">
+        <option value="fnb">Resto / Kafe / Warung — pesanan per Meja &amp; Atas Nama</option>
+        <option value="retail">Toko / Retail — bayar langsung</option>
+      </select>
+    </label>
     <label class="field"><span>Sandi (PIN 4–6 angka)</span><input class="input" id="suPin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="••••" /></label>
     <label class="field"><span>Ulangi Sandi</span><input class="input" id="suPin2" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="••••" /></label>
     <div class="login-err" id="suErr"></div>
@@ -2249,7 +2255,8 @@
     if(!admin){ admin={id:uid(),name:"Administrator",username:"admin",role:"Admin",active:true}; S.users=[admin]; }
     admin.pin=hashPin(pin); admin.active=true;
     S.users=[admin];
-    Object.assign(S.settings,{store,phone,addr:"",cashier:admin.name});
+    const fnb=$("#suType").value==="fnb";
+    Object.assign(S.settings,{store,phone,addr:"",cashier:admin.name,tableMode:fnb,tableCount:fnb?8:(S.settings.tableCount==null?8:S.settings.tableCount)});
     S.setupDone=true; S.session=admin.id;
     audit("Registrasi toko", store);
     save();
