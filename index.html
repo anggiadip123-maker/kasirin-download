@@ -30,6 +30,13 @@
   ol{margin:0 0 20px;padding-left:20px;color:var(--ink)}
   ol li{margin:6px 0}
   .note{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;font-size:13.5px;color:var(--muted)}
+  .gallery{display:flex;gap:12px;overflow-x:auto;padding:4px 2px 14px;margin:0 0 24px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+  .gallery figure{margin:0;flex:none;width:150px;scroll-snap-align:start}
+  .gallery img{width:100%;height:auto;display:block;border-radius:14px;border:1px solid var(--line);background:var(--card)}
+  .gallery figcaption{font-size:12px;color:var(--muted);text-align:center;margin-top:6px}
+  details{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:8px 0}
+  summary{cursor:pointer;font-weight:600;font-size:14.5px}
+  details p{margin:8px 0 0;font-size:14px;color:var(--muted)}
   footer{margin-top:28px;text-align:center;font-size:12.5px;color:var(--muted)}
   footer a{color:inherit}
 </style>
@@ -54,6 +61,15 @@
     <li><b>Data di HP kamu</b> — tidak butuh server, bisa backup &amp; restore</li>
   </ul>
 
+  <div class="gallery" aria-label="Tampilan aplikasi">
+    <figure><img src="shots/02-dashboard.jpg" alt="Dashboard penjualan" loading="lazy"><figcaption>Dashboard</figcaption></figure>
+    <figure><img src="shots/03-kasir-meja.jpg" alt="Kasir dengan meja dan atas nama" loading="lazy"><figcaption>Kasir &amp; Meja</figcaption></figure>
+    <figure><img src="shots/04-keranjang.jpg" alt="Keranjang dan metode bayar" loading="lazy"><figcaption>Keranjang</figcaption></figure>
+    <figure><img src="shots/05-struk.jpg" alt="Struk penjualan" loading="lazy"><figcaption>Struk</figcaption></figure>
+    <figure><img src="shots/06-akuntansi.jpg" alt="Pembukuan dan laba rugi" loading="lazy"><figcaption>Pembukuan</figcaption></figure>
+    <figure><img src="shots/01-registrasi.jpg" alt="Registrasi toko" loading="lazy"><figcaption>Daftar toko</figcaption></figure>
+  </div>
+
   <h2>Cara install</h2>
   <ol>
     <li>Tekan tombol <b>Download</b> di atas, lalu buka file yang terunduh</li>
@@ -64,6 +80,14 @@
 
   <h2 style="margin-top:24px">Pengguna iPhone</h2>
   <p style="margin:0 0 8px;color:var(--muted)">iPhone tidak bisa memasang APK. Pakai versi web: buka <a href="app/" style="color:var(--orange);font-weight:700">tautan ini di Safari</a>, ketuk tombol <b>Bagikan</b>, lalu pilih <b>Tambah ke Layar Utama</b>. Setelah itu KASIRIN tampil seperti aplikasi biasa.</p>
+
+  <h2 style="margin-top:24px">Pertanyaan umum</h2>
+  <details><summary>Apakah data toko saya aman?</summary><p>Data tersimpan di HP kamu sendiri, tidak dikirim ke server. Karena itu backup rutin penting; ada pengingat dan tombol backup di menu User &amp; Setting.</p></details>
+  <details><summary>Butuh internet?</summary><p>Tidak untuk kasir dan pembukuan. Internet hanya dipakai untuk fitur tambahan seperti impor Excel dan membagikan struk sebagai gambar.</p></details>
+  <details><summary>Bisa cetak struk?</summary><p>Di komputer bisa cetak ke printer apa saja yang terpasang (termasuk printer struk thermal USB). Di HP, struk dibagikan sebagai gambar ke WhatsApp. Printer Bluetooth belum didukung.</p></details>
+  <details><summary>Lupa PIN?</summary><p>Ketuk "Lupa PIN?" di layar masuk dan isi kode pemulihan yang tampil saat pertama daftar.</p></details>
+  <details><summary>Ganti HP, data ikut pindah?</summary><p>Backup di HP lama, lalu Restore di HP baru lewat menu User &amp; Setting.</p></details>
+  <details><summary>Apa bedanya Gratis dan PRO?</summary><p>Gratis sampai 150 transaksi dan ada tulisan promosi kecil di struk. PRO Rp99rb sekali bayar: tanpa batas transaksi dan struk bersih.</p></details>
 
   <h2 style="margin-top:24px">Upgrade PRO</h2>
   <p style="margin:0;color:var(--muted)">Versi gratis sampai 150 transaksi. PRO Rp99rb sekali bayar, tanpa batas transaksi. Hubungi
