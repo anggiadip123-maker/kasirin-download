@@ -1438,7 +1438,19 @@
       ${checkPro()?"":'<div class="r-c" style="margin-top:8px;font-size:10px;opacity:.6">Dibuat dengan KASIRIN — upgrade ke PRO untuk hapus tulisan ini</div>'}
     </div>`;
   }
-  function printReceipt(t){ $("#printArea").innerHTML = receiptHTML(t); setTimeout(()=>{ try{ window.print(); }catch(e){ toast("Dialog cetak tidak tersedia di sini","bad"); } },50); }
+  const nativePrintPlugin = (window.Capacitor && window.Capacitor.registerPlugin) ? window.Capacitor.registerPlugin("NativePrint") : null;
+  async function printReceipt(t){
+    $("#printArea").innerHTML = receiptHTML(t);
+    const native=!!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    if(native && nativePrintPlugin){
+      setTimeout(async()=>{
+        try{ await nativePrintPlugin.print(); }
+        catch(e){ toast("Gagal membuka dialog cetak. Pastikan printer sudah terhubung/dipasangkan","bad"); }
+      },50);
+      return;
+    }
+    setTimeout(()=>{ try{ window.print(); }catch(e){ toast("Dialog cetak tidak tersedia di sini","bad"); } },50);
+  }
   async function shareReceiptImage(receiptEl, id){
     if(typeof html2canvas!=="function"){ toast("Fitur ini butuh koneksi internet (sekali saja)","bad"); return; }
     let canvas;
