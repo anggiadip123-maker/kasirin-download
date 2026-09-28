@@ -829,7 +829,7 @@
           <div class="row-flex">
             <button class="btn primary" id="exportBtn">💾 Backup Data (.json)</button>
             <label class="btn" for="restoreFile" style="cursor:pointer">📂 Restore Data (.json)</label>
-            <input type="file" id="restoreFile" accept="application/json,.json" hidden />
+            <input type="file" id="restoreFile" accept=".json,application/json,text/plain,*/*" hidden />
             <button class="btn danger" id="resetBtn">Hapus Semua Data</button>
           </div>
           <p id="lastBackupInfo" style="color:var(--muted);font-size:12px;margin:10px 0 0"></p>
@@ -890,7 +890,7 @@
     <div class="login-divider"></div>
     <p class="login-hint" style="margin-bottom:8px">Pindah dari HP lama dan sudah punya file backup?</p>
     <label class="btn block" for="suRestoreFile" style="cursor:pointer">📂 Pulihkan dari Backup (.json)</label>
-    <input type="file" id="suRestoreFile" accept="application/json,.json" hidden />
+    <input type="file" id="suRestoreFile" accept=".json,application/json,text/plain,*/*" hidden />
   </div>
 </div>
 
