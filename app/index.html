@@ -830,8 +830,10 @@
             <button class="btn primary" id="exportBtn">💾 Backup Data (.json)</button>
             <label class="btn" for="restoreFile" style="cursor:pointer">📂 Restore Data (.json)</label>
             <input type="file" id="restoreFile" accept=".json,application/json,text/plain,*/*" hidden />
+            <button class="btn danger ghost" id="clearTxBtn" type="button">🧹 Kosongkan Riwayat Transaksi</button>
             <button class="btn danger" id="resetBtn">Hapus Semua Data</button>
           </div>
+          <p style="color:var(--muted);font-size:11.5px;margin:6px 0 0">"Kosongkan Riwayat Transaksi" menghapus semua penjualan, retur, kas, dan pembukuan — tapi produk, pengguna, dan pengaturan toko tetap ada. Cocok dipakai sekali sebelum mulai transaksi sungguhan, setelah selesai coba-coba.</p>
           <p id="lastBackupInfo" style="color:var(--muted);font-size:12px;margin:10px 0 0"></p>
         </div>
         <div class="card card-p admin-only" style="grid-column:1/-1">
@@ -2732,6 +2734,25 @@
   }
   $("#restoreFile").addEventListener("change",e=>handleRestoreFile(e,false));
   $("#suRestoreFile").addEventListener("change",e=>handleRestoreFile(e,true));
+  $("#clearTxBtn").addEventListener("click",()=>{
+    modal({title:"Kosongkan Riwayat Transaksi", okText:"Kosongkan Permanen",
+      bodyHTML:`<p style="margin:0 0 10px">Semua <strong>transaksi, retur, kas masuk/keluar, closing kasir</strong>, dan data pembukuan (pembelian, biaya, pembayaran, jurnal manual, stok opname) akan dihapus permanen dan tidak bisa dikembalikan.</p>
+        <p style="margin:0 0 10px"><strong>Produk, pengguna, dan pengaturan toko TIDAK ikut terhapus.</strong> Pastikan sudah Export JSON kalau perlu backup dulu.</p>
+        <p style="margin:0 0 6px">Ketik <strong>KOSONGKAN</strong> untuk konfirmasi:</p>
+        <div class="field"><input class="input" id="clearTxConfirmInput" autocomplete="off" placeholder="KOSONGKAN"></div>`,
+      onOk:()=>{
+        const val=($("#clearTxConfirmInput").value||"").trim();
+        if(val!=="KOSONGKAN"){ toast("Ketik KOSONGKAN (huruf besar) untuk konfirmasi","bad"); return false; }
+        S.transactions=[]; S.cashMoves=[]; S.closings=[];
+        S.acc.purchases=[]; S.acc.expenses=[]; S.acc.payments=[]; S.acc.manual=[]; S.acc.opname=[]; S.acc.closing=[];
+        S.acc.closedUntil=null;
+        S.tableCarts={}; S.activeTable=null; S.cart=[]; S.cartDiscount=0;
+        audit("Kosongkan riwayat transaksi","Produk & pengaturan tetap ada");
+        save();
+        toast("Riwayat transaksi dikosongkan, memuat ulang...","good");
+        setTimeout(()=>location.reload(),600);
+      }});
+  });
   $("#resetBtn").addEventListener("click",()=>{
     modal({title:"Hapus Semua Data", okText:"Hapus Permanen",
       bodyHTML:`<p style="margin:0 0 10px">Semua produk, transaksi, kas, dan pengguna akan <strong>dihapus permanen</strong> dan tidak bisa dikembalikan. Pastikan sudah Export JSON kalau perlu backup.</p>
