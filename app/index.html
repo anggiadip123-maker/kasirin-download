@@ -887,6 +887,10 @@
     <div class="login-err" id="suErr"></div>
     <button class="btn primary block" id="suBtn">Mulai Pakai KASIRIN</button>
     <p class="login-hint">Sandi ini dipakai untuk masuk sebagai Admin. Data toko tersimpan di HP ini.</p>
+    <div class="login-divider"></div>
+    <p class="login-hint" style="margin-bottom:8px">Pindah dari HP lama dan sudah punya file backup?</p>
+    <label class="btn block" for="suRestoreFile" style="cursor:pointer">📂 Pulihkan dari Backup (.json)</label>
+    <input type="file" id="suRestoreFile" accept="application/json,.json" hidden />
   </div>
 </div>
 
@@ -2704,7 +2708,7 @@
     $("#nagBackup").addEventListener("click",doBackup);
     $("#nagLater").addEventListener("click",()=>{ try{ localStorage.setItem("kasirpro.nagUntil", String(Date.now()+2*864e5)); }catch(e){} renderBackupNag(); });
   }
-  $("#restoreFile").addEventListener("change",e=>{
+  function handleRestoreFile(e,fromSetup){
     const file=e.target.files[0]; if(!file) return;
     const reader=new FileReader();
     reader.onload=ev=>{
@@ -2714,7 +2718,10 @@
       if(!parsed || !Array.isArray(parsed.products) || !Array.isArray(parsed.users) || !parsed.settings){
         toast("File tidak dikenali sebagai backup KASIRIN","bad"); e.target.value=""; return;
       }
-      confirmAsk("Restore akan MENIMPA semua data di perangkat ini dengan isi file \""+file.name+"\" (toko: "+esc(parsed.settings.store||"?")+"). Tindakan ini tidak bisa dibatalkan. Lanjutkan?",()=>{
+      const msg = fromSetup
+        ? "Memulihkan data toko \""+esc(parsed.settings.store||"?")+"\" dari file \""+file.name+"\" ke HP ini. Lanjutkan?"
+        : "Restore akan MENIMPA semua data di perangkat ini dengan isi file \""+file.name+"\" (toko: "+esc(parsed.settings.store||"?")+"). Tindakan ini tidak bisa dibatalkan. Lanjutkan?";
+      confirmAsk(msg,()=>{
         localStorage.setItem(KEY, JSON.stringify(parsed));
         toast("Restore berhasil, memuat ulang...","good");
         setTimeout(()=>location.reload(),600);
@@ -2722,7 +2729,9 @@
       e.target.value="";
     };
     reader.readAsText(file);
-  });
+  }
+  $("#restoreFile").addEventListener("change",e=>handleRestoreFile(e,false));
+  $("#suRestoreFile").addEventListener("change",e=>handleRestoreFile(e,true));
   $("#resetBtn").addEventListener("click",()=>{
     modal({title:"Hapus Semua Data", okText:"Hapus Permanen",
       bodyHTML:`<p style="margin:0 0 10px">Semua produk, transaksi, kas, dan pengguna akan <strong>dihapus permanen</strong> dan tidak bisa dikembalikan. Pastikan sudah Export JSON kalau perlu backup.</p>
