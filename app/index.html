@@ -547,6 +547,11 @@
     <section class="view" id="view-dashboard">
       <div id="limitNag"></div>
       <div id="backupNag"></div>
+      <div id="stockNag"></div>
+      <div id="dueNag"></div>
+      <div class="row-flex admin-only" id="dashQuickActions" style="margin-bottom:14px">
+        <button class="btn sm" id="quickExpenseBtn" type="button">💸 Catat Pengeluaran</button>
+      </div>
       <div class="kpi-grid" id="kpiGrid"></div>
       <div class="card card-p" style="margin-bottom:18px">
         <div class="section-title">Penjualan 7 Hari Terakhir</div>
@@ -592,6 +597,7 @@
             <button class="pm" data-pm="QRIS">QRIS</button>
             <button class="pm" data-pm="CARD">Card</button>
             <button class="pm" data-pm="TEMPO">Tempo</button>
+            <button class="pm" data-pm="SPLIT">Split</button>
           </div>
           <div class="cart-actions">
             <button class="btn sm ghost" id="holdBtn" title="Shortcut: F1">Hold <span class="code-chip">F1</span></button>
@@ -645,6 +651,7 @@
         <input type="file" id="xlsxFile" accept=".xlsx,.xls" hidden />
         <button class="btn primary" id="addProdBtn">Tambah Produk</button>
       </div>
+      <div id="stockNagProd" style="margin-bottom:14px"></div>
       <div class="table-wrap">
         <table>
           <thead><tr><th></th><th>Produk</th><th>Kategori</th><th>Barcode</th><th class="r">Harga</th><th class="r">Stok</th><th class="r">Status</th><th class="r">Aksi</th></tr></thead>
@@ -1080,12 +1087,15 @@
   }
   function canRefund(){ const u=currentUser(); return !!u && (u.role==="Admin"||u.role==="Supervisor"); }
 
+  function splitAmt(t,method){ return t.splits&&t.splits.length ? sumBy(t.splits.filter(s=>s.method===method),s=>s.amount) : (t.method===method?(t.total||0):0); }
+  function hasMethod(t,method){ return t.splits&&t.splits.length ? t.splits.some(s=>s.method===method) : t.method===method; }
+  function methodLabel(t){ return t.splits&&t.splits.length ? t.splits.map(s=>s.method).join("+") : t.method; }
   function cashSummary(){
     const tx = txToday();
     const opening = S.settings.opening||0;
-    const cashSales = sumBy(tx.filter(t=>t.method==="CASH"), t=>t.total);
-    const qrisSales = sumBy(tx.filter(t=>t.method==="QRIS"), t=>t.total);
-    const cardSales = sumBy(tx.filter(t=>t.method==="CARD"), t=>t.total);
+    const cashSales = sumBy(tx, t=>splitAmt(t,"CASH"));
+    const qrisSales = sumBy(tx, t=>splitAmt(t,"QRIS"));
+    const cardSales = sumBy(tx, t=>splitAmt(t,"CARD"));
     const cashIn = sumBy(S.cashMoves.filter(m=>isToday(m.time)&&m.type==="IN"), m=>m.amount);
     const cashOut = sumBy(S.cashMoves.filter(m=>isToday(m.time)&&(m.type==="OUT"||m.type==="TRANSFER")), m=>m.amount);
     const expected = opening + cashSales + cashIn - cashOut;
@@ -1140,6 +1150,8 @@
   function renderDashboard(){
     renderLimitNag();
     renderBackupNag();
+    renderStockNag();
+    renderDueNag();
     const tx=txToday();
     const cs=cashSummary();
     const sales=sumBy(tx,t=>t.total);
@@ -1150,8 +1162,8 @@
     const kpis=[
       {label:"Penjualan Hari Ini",val:rp(sales),sub:nSale+" transaksi"+(nRet?" · "+nRet+" retur":""),cls:"c-green"},
       {label:"Jumlah Transaksi",val:nSale,sub:"Rata-rata "+rp(nSale?sales/nSale:0),cls:"c-blue"},
-      {label:"Cash",val:rp(cs.cashSales),sub:tx.filter(t=>t.method==="CASH").length+" transaksi",cls:"c-green"},
-      {label:"QRIS",val:rp(cs.qrisSales),sub:tx.filter(t=>t.method==="QRIS").length+" transaksi",cls:"c-blue"},
+      {label:"Cash",val:rp(cs.cashSales),sub:tx.filter(t=>hasMethod(t,"CASH")).length+" transaksi",cls:"c-green"},
+      {label:"QRIS",val:rp(cs.qrisSales),sub:tx.filter(t=>hasMethod(t,"QRIS")).length+" transaksi",cls:"c-blue"},
       {label:"Produk Terjual",val:itemsSold,sub:"unit hari ini",cls:""},
       {label:"Selisih Kas",val:rp(cs.selisih),sub:cs.actual==null?"belum closing":"vs expected",cls:selCls},
     ];
@@ -1176,7 +1188,7 @@
         <div class="bar"><span style="width:${q/max*100}%"></span></div>
       </div>`).join("") : `<div class="empty">Belum ada penjualan</div>`;
 
-    const pm={CASH:cs.cashSales,QRIS:cs.qrisSales,CARD:cs.cardSales,TEMPO:sumBy(tx.filter(t=>t.method==="TEMPO"),t=>t.total)};
+    const pm={CASH:cs.cashSales,QRIS:cs.qrisSales,CARD:cs.cardSales,TEMPO:sumBy(tx,t=>splitAmt(t,"TEMPO"))};
     const pmTot=(pm.CASH+pm.QRIS+pm.CARD+pm.TEMPO)||1;
     const pmColor={CASH:"var(--pm-cash)",QRIS:"var(--pm-qris)",CARD:"var(--pm-card)",TEMPO:"var(--pm-tempo)"};
     const segs=Object.entries(pm).map(([k,v])=>({label:k,value:v,color:pmColor[k]}));
@@ -1186,7 +1198,7 @@
 
     $("#dashRecent").innerHTML = [...tx].reverse().slice(0,5).map(t=>`
       <div class="mini-row">
-        <span>${t.id} · <span class="pill ${pmClass(t.method)}">${t.method}</span></span>
+        <span>${t.id} · <span class="pill ${pmClass(t.method)}">${methodLabel(t)}</span></span>
         <span class="mono">${rp(t.total)}</span>
       </div>`).join("") || `<div class="empty">—</div>`;
   }
@@ -1436,11 +1448,13 @@
       <div class="r-line"></div>
       <div class="r-tot"><span>${isRet?"DIKEMBALIKAN":"TOTAL"}</span><span>${rp(t.total)}</span></div>
       ${isRet
-        ? `<div class="r-row"><span>Via</span><span>${t.method}</span></div>`
-        : `<div class="r-row"><span>Bayar (${t.method})</span><span>${rp(bayar)}</span></div>` +
+        ? `<div class="r-row"><span>Via</span><span>${methodLabel(t)}</span></div>`
+        : (t.splits&&t.splits.length
+            ? t.splits.map(sp=>`<div class="r-row"><span>Bayar (${sp.method})</span><span>${rp(sp.amount)}</span></div>`).join("")
+            : `<div class="r-row"><span>Bayar (${t.method})</span><span>${rp(bayar)}</span></div>`) +
           (t.method==="TEMPO"
             ? `<div class="r-row"><span>Sisa (Piutang)</span><span>${rp(t.total)}</span></div>`
-            : `<div class="r-row"><span>Kembali</span><span>${rp(t.change||0)}</span></div>`)}
+            : (t.splits&&t.splits.length ? "" : `<div class="r-row"><span>Kembali</span><span>${rp(t.change||0)}</span></div>`))}
       <div class="r-foot">${isRet?"~ Retur diproses ~":"~ Terima kasih ~"}<br>${esc(s.footnote||"Simpan struk sebagai bukti pembayaran")}</div>
       ${checkPro()?"":'<div class="r-c" style="margin-top:8px;font-size:10px;opacity:.6">Dibuat dengan KASIRIN — upgrade ke PRO untuk hapus tulisan ini</div>'}
     </div>`;
@@ -1507,7 +1521,7 @@
     if(accLocked((t.time||"").slice(0,10)) || accLocked(todayStr())){ toast("Periode akuntansi terkunci — retur ditolak","bad"); return; }
     modal({title:"Retur — "+t.id, okText:"Proses Retur",
       bodyHTML:`
-        <p class="acc-note" style="margin:0 0 10px">Membatalkan seluruh transaksi <strong>${t.id}</strong>. Stok dikembalikan, uang dikembalikan via <strong>${t.method}</strong>, jurnal balik otomatis dibuat.</p>
+        <p class="acc-note" style="margin:0 0 10px">Membatalkan seluruh transaksi <strong>${t.id}</strong>. Stok dikembalikan, uang dikembalikan via <strong>${methodLabel(t)}</strong>, jurnal balik otomatis dibuat.</p>
         <div class="kv"><span>Jumlah dikembalikan</span><span class="mono">${rp(t.total)}</span></div>
         <div class="field" style="margin-top:12px"><label>Alasan retur</label><input class="input" id="rtReason" placeholder="mis. barang rusak / salah pesan"></div>`,
       onOk:()=>{
@@ -1518,7 +1532,8 @@
           type:"RETUR", refOf:t.id, reason:$("#rtReason").value.trim(),
           items:(t.items||[]).map(i=>({id:i.id,name:i.name,price:i.price,qty:-Math.abs(i.qty)})),
           subtotal:-(t.subtotal||0), discount:-(t.discount||0), tax:-(t.tax||0), service:-(t.service||0),
-          total:-(t.total||0), method:t.method, paid:-(t.paid||0), change:0, customer:t.customer||""
+          total:-(t.total||0), method:t.method, paid:-(t.paid||0), change:0, customer:t.customer||"",
+          splits: t.splits&&t.splits.length ? t.splits.map(sp=>({method:sp.method,amount:-Math.abs(sp.amount)})) : undefined
         };
         S.transactions.push(rtx);
         (t.items||[]).forEach(i=>{ const p=S.products.find(x=>x.id===i.id); if(p) p.stock += Math.abs(i.qty); });
@@ -1537,6 +1552,7 @@
       return;
     }
     const c=cartCalc();
+    if(S.payMethod==="SPLIT"){ openSplitPayModal(c); return; }
     if(S.payMethod==="TEMPO"){
       modal({title:"Penjualan Tempo (Piutang)", okText:"Simpan",
         bodyHTML:`
@@ -1578,6 +1594,42 @@
     });
     const upd=()=>{ const paid=+($("#mPaid").value||0); $("#mChange").value=rp(Math.max(0,paid-c.total)); };
     setTimeout(()=>{ const el=$("#mPaid"); if(el){ el.addEventListener("input",upd); el.select(); } },30);
+  }
+  function openSplitPayModal(c){
+    const methods=["CASH","QRIS","CARD"];
+    const rowHTML=(i,m,amt)=>`<div class="row-flex split-row" data-row="${i}" style="margin-bottom:8px">
+        <select class="input" data-srow-m="${i}">${methods.map(x=>`<option value="${x}" ${x===m?'selected':''}>${x}</option>`).join("")}</select>
+        <input class="input mono" data-srow-a="${i}" type="number" min="0" value="${amt}">
+      </div>`;
+    modal({title:"Split Pembayaran — Total "+rp(c.total), okText:"Bayar",
+      bodyHTML:`<p class="acc-note" style="margin:0 0 10px">Isi nominal tiap metode. Jumlah semua baris harus sama dengan total tagihan.</p>
+        <div id="splitRows">${rowHTML(0,"CASH",c.total)}${rowHTML(1,"QRIS",0)}</div>
+        <button class="btn sm" id="splitAddRow" type="button">+ Tambah Metode</button>
+        <p class="acc-note" id="splitSum" style="margin-top:10px"></p>`,
+      onOk:()=>{
+        const rows=$$("#splitRows [data-row]");
+        const splits=rows.map(r=>{ const i=r.dataset.row; return { method:$(`[data-srow-m="${i}"]`).value, amount:Math.round(num($(`[data-srow-a="${i}"]`).value)) }; }).filter(s=>s.amount>0);
+        if(!splits.length){ toast("Isi minimal satu metode","bad"); return false; }
+        const sum=sumBy(splits,s=>s.amount);
+        if(sum!==c.total){ toast("Jumlah split ("+rp(sum)+") harus sama dengan total ("+rp(c.total)+")","bad"); return false; }
+        const isSingle = splits.length===1;
+        const trx=commitSale({method:isSingle?splits[0].method:"SPLIT", splits:isSingle?undefined:splits, paid:c.total, change:0});
+        toast("Pembayaran tersimpan · "+trx.id,"good");
+        setTimeout(()=>showReceipt(trx),40);
+      }});
+    setTimeout(()=>{
+      let n=2;
+      const upd=()=>{
+        const rows=$$("#splitRows [data-row]");
+        const sum=sumBy(rows,r=>num($(`[data-srow-a="${r.dataset.row}"]`).value));
+        const el=$("#splitSum"); if(el) el.innerHTML="Total diisi: <strong>"+rp(sum)+"</strong> dari "+rp(c.total);
+      };
+      $("#splitRows").addEventListener("input",upd);
+      $("#splitAddRow").addEventListener("click",()=>{
+        $("#splitRows").insertAdjacentHTML("beforeend", rowHTML(n,"CARD",0)); n++; upd();
+      });
+      upd();
+    },30);
   }
 
   $("#products").addEventListener("click",e=>{ const b=e.target.closest("[data-add]"); if(b) addToCart(b.dataset.add); });
@@ -1825,7 +1877,7 @@
         <td><span class="pill neutral">${p.cat}</span></td>
         <td class="mono">${p.barcode||"—"}</td>
         <td class="r mono">${rp(p.price)}</td>
-        <td class="r"><span class="pill ${p.stock<=0?'bad':p.stock<10?'warn':'good'}">${p.stock}</span></td>
+        <td class="r"><span class="pill ${p.stock<=0?'bad':p.stock<=(p.minStock||5)?'warn':'good'}">${p.stock}</span></td>
         <td class="r"><span class="pill ${p.active===false?'bad':'good'}">${p.active===false?'Nonaktif':'Aktif'}</span></td>
         <td class="r">
           <button class="btn sm" data-edit="${p.id}">Edit</button>
@@ -1833,10 +1885,30 @@
           <button class="btn sm danger" data-del="${p.id}">Hapus</button>
         </td>
       </tr>`).join("") || `<tr><td colspan="8" class="empty">Tidak ada produk</td></tr>`;
+    renderStockNag();
+  }
+  function lowStockList(){ return S.products.filter(p=>p.active!==false && p.stock>0 && p.stock<=(p.minStock||5)); }
+  function outOfStockList(){ return S.products.filter(p=>p.active!==false && p.stock<=0); }
+  function renderStockNag(){
+    const low=lowStockList(), out=outOfStockList();
+    const html = (!low.length && !out.length) ? "" : `<div class="nag"><div class="nag-txt">
+        ${out.length?`<strong>${out.length} produk habis:</strong> ${out.slice(0,4).map(p=>esc(p.name)).join(", ")}${out.length>4?" · +"+(out.length-4)+" lainnya":""}<br>`:""}
+        ${low.length?`<strong>${low.length} produk stok menipis:</strong> ${low.slice(0,4).map(p=>esc(p.name)+" ("+p.stock+")").join(", ")}${low.length>4?" · +"+(low.length-4)+" lainnya":""}`:""}
+      </div></div>`;
+    const a=$("#stockNag"); if(a) a.innerHTML=html;
+    const b=$("#stockNagProd"); if(b) b.innerHTML=html;
+  }
+  function renderDueNag(){
+    const el=$("#dueNag"); if(!el) return;
+    const today=todayStr();
+    const overdue=arList().filter(x=>x.due && x.due<today);
+    if(!overdue.length){ el.innerHTML=""; return; }
+    const total=sumBy(overdue,x=>x.sisa);
+    el.innerHTML = `<div class="nag"><div class="nag-txt"><strong>${overdue.length} piutang lewat jatuh tempo</strong> senilai ${rp(total)}. Tagih pelanggan atau catat pembayaran di Pembukuan &gt; Piutang &amp; Hutang.</div></div>`;
   }
   function prodModal(p){
     const isNew=!p;
-    p = p || {name:"",cat:"Makanan",price:0,cost:0,stock:0,barcode:"",photo:"",active:true,variant:null};
+    p = p || {name:"",cat:"Makanan",price:0,cost:0,stock:0,minStock:5,barcode:"",photo:"",active:true,variant:null};
     let pendingPhoto = p.photo || "";
     modal({title:isNew?"Tambah Produk":"Edit Produk",okText:isNew?"Tambah":"Simpan",
       bodyHTML:`
@@ -1854,6 +1926,7 @@
         <div class="field"><label>HPP / Modal (Rp)</label><input class="input mono" id="pfCost" type="number" min="0" value="${p.cost||0}"></div>
         <div class="acc-note" id="pfMargin" style="margin:-4px 0 12px"></div>
         <div class="field"><label>Stok</label><input class="input mono" id="pfStock" type="number" min="0" value="${p.stock}"></div>
+        <div class="field"><label>Stok Minimum (peringatan menipis)</label><input class="input mono" id="pfMinStock" type="number" min="0" value="${p.minStock==null?5:p.minStock}"></div>
         <div class="field"><label>Barcode</label>
           <div class="row-flex" style="flex-wrap:nowrap"><input class="input mono" id="pfBar" value="${p.barcode||""}" placeholder="ketik atau scan"><button class="btn sm" id="pfScan" type="button">Scan</button></div>
         </div>
@@ -1869,7 +1942,7 @@
         const name=$("#pfName").value.trim(); if(!name){ toast("Nama wajib diisi","bad"); return false; }
         const barcode=$("#pfBar").value.trim();
         if(barcode && S.products.some(x=>x.barcode===barcode && (isNew || x.id!==p.id))){ toast("Barcode sudah dipakai produk lain","bad"); return false; }
-        const data={name,cat:$("#pfCat").value,price:+$("#pfPrice").value||0,cost:+$("#pfCost").value||0,stock:+$("#pfStock").value||0,barcode,photo:pendingPhoto,active:$("#pfActive").classList.contains("on")};
+        const data={name,cat:$("#pfCat").value,price:+$("#pfPrice").value||0,cost:+$("#pfCost").value||0,stock:+$("#pfStock").value||0,minStock:+$("#pfMinStock").value||0,barcode,photo:pendingPhoto,active:$("#pfActive").classList.contains("on")};
         if($("#pfHasVariant").classList.contains("on")){
           const group=$("#pfVarGroup").value.trim();
           const options=$("#pfVarOptions").value.split(",").map(s=>s.trim()).filter(Boolean);
@@ -2099,7 +2172,7 @@
       const disc=sumBy(tx,t=>t.discount), tax=sumBy(tx,t=>t.tax), qty=sumBy(tx,t=>sumBy(t.items,i=>i.qty));
       const cIn=sumBy(S.cashMoves.filter(m=>inRange(m.time)&&m.type==="IN"),m=>m.amount);
       const cOut=sumBy(S.cashMoves.filter(m=>inRange(m.time)&&(m.type==="OUT"||m.type==="TRANSFER")),m=>m.amount);
-      const cashS=sumBy(tx.filter(t=>t.method==="CASH"),t=>t.total)+sumBy(retur.filter(t=>t.method==="CASH"),t=>t.total);
+      const cashS=sumBy(tx,t=>splitAmt(t,"CASH"))+sumBy(retur,t=>splitAmt(t,"CASH"));
       B.innerHTML=`<div class="report-grid">
         <div class="rep-card"><h4>Penjualan (${rangeLbl})</h4><div class="rep-big num">${rp(net)}</div><div class="split"><span>Penjualan kotor</span><span class="mono">${rp(gross)}</span></div><div class="split"><span>Retur</span><span class="mono">${rp(returV)}</span></div><div class="split"><span>Transaksi</span><span class="mono">${tx.length}${retur.length?" (+"+retur.length+" retur)":""}</span></div></div>
         <div class="rep-card"><h4>Diskon &amp; Pajak</h4><div class="rep-big num">${rp(tax)}</div><div class="split"><span>Total diskon</span><span class="mono">${rp(disc)}</span></div><div class="split"><span>Total pajak (PPN)</span><span class="mono">${rp(tax)}</span></div><div class="split"><span>Produk terjual</span><span class="mono">${qty}</span></div></div>
@@ -2117,7 +2190,7 @@
     }
     else if(repTab==="metode"){
       const m={CASH:{n:0,v:0},QRIS:{n:0,v:0},CARD:{n:0,v:0},TEMPO:{n:0,v:0}};
-      all.forEach(t=>{ if(!m[t.method]) m[t.method]={n:0,v:0}; if(t.type!=="RETUR") m[t.method].n++; m[t.method].v+=t.total; });
+      all.forEach(t=>{ ["CASH","QRIS","CARD","TEMPO"].forEach(k=>{ const amt=splitAmt(t,k); if(amt){ if(t.type!=="RETUR") m[k].n++; m[k].v+=amt; } }); });
       const tot=sumBy(Object.values(m),x=>x.v)||1;
       B.innerHTML = repHead("Metode Pembayaran",rangeLbl)+tableWrap(["Metode","Transaksi","Total","Porsi"], Object.entries(m).map(([k,v])=>[k,v.n,rp(v.v),Math.round(v.v/tot*100)+"%"]));
       repCSV=[["Metode","Transaksi","Total","Porsi %"],...Object.entries(m).map(([k,v])=>[k,v.n,v.v,Math.round(v.v/tot*100)])]; repTitle="metode-pembayaran";
@@ -2145,10 +2218,10 @@
           + (t.refunded ? ` <span class="pill bad">diretur</span>` : "")
           + (isRet ? ` <span class="pill warn">retur</span>` : "");
         return [ fmtD((t.time||"").slice(0,10))+" "+new Date(t.time).toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"}),
-          t.id, esc(t.cashier), sumBy(t.items,i=>i.qty), `<span class="pill ${pmClass(t.method)}">${t.method}</span>`, rp(t.total), act ];
+          t.id, esc(t.cashier), sumBy(t.items,i=>i.qty), `<span class="pill ${pmClass(t.method)}">${methodLabel(t)}</span>`, rp(t.total), act ];
       });
       B.innerHTML = repHead("Riwayat Transaksi",rangeLbl)+tableWrap(["Waktu","ID","Kasir","Item","Metode","Total","Aksi"], rows);
-      repCSV=[["Waktu","ID","Kasir","Item","Metode","Total","Tipe"],...list.map(t=>[t.time,t.id,t.cashier,sumBy(t.items,i=>i.qty),t.method,t.total,t.type||"JUAL"])]; repTitle="riwayat-transaksi";
+      repCSV=[["Waktu","ID","Kasir","Item","Metode","Total","Tipe"],...list.map(t=>[t.time,t.id,t.cashier,sumBy(t.items,i=>i.qty),methodLabel(t),t.total,t.type||"JUAL"])]; repTitle="riwayat-transaksi";
     }
   }
   function repHead(t,r){ return `<div class="section-title" style="margin-bottom:12px">${t} — ${r}</div>`; }
@@ -2378,6 +2451,12 @@
     inp.focus();
   });
   $("#logoutBtn").addEventListener("click",()=>{ confirmAsk("Keluar / kunci layar sekarang?",showLogin,"Keluar"); });
+  $("#quickExpenseBtn").addEventListener("click",()=>{
+    if(!can("akuntansi")){ toast("Hanya Admin yang bisa mencatat pengeluaran","bad"); return; }
+    location.hash="akuntansi";
+    accTab="transaksi";
+    setTimeout(()=>{ renderAkuntansi(); formBiaya(); },200);
+  });
   $("#saveSetBtn").addEventListener("click",()=>{
     Object.assign(S.settings,{
       store:$("#setStore").value.trim()||"Toko Saya",
@@ -2694,15 +2773,18 @@
     const P=(date,ref,memo,source,lines)=>{ if(date) J.push({date,ref,memo,source,lines}); };
     S.transactions.forEach(t=>{
       const d=(t.time||"").slice(0,10); if(!d) return;
-      const cashAcc = t.method==="CASH" ? "1-100" : (t.method==="QRIS"||t.method==="CARD") ? "1-110" : "1-120";
+      const acctFor = m => m==="CASH" ? "1-100" : (m==="QRIS"||m==="CARD") ? "1-110" : "1-120";
       const base=(t.subtotal||0)-(t.discount||0);
       const rev=base+(t.service||0);
-      const lines=[{code:cashAcc,d:t.total,c:0},{code:"4-100",d:0,c:rev}];
+      const lines = (t.splits&&t.splits.length)
+        ? t.splits.map(sp=>({code:acctFor(sp.method),d:sp.amount,c:0}))
+        : [{code:acctFor(t.method),d:t.total,c:0}];
+      lines.push({code:"4-100",d:0,c:rev});
       if(t.tax) lines.push({code:"2-200",d:0,c:t.tax});
       let cogs=0;
       (t.items||[]).forEach(i=>{ const p=S.products.find(x=>x.id===i.id); const cost=(p&&p.cost)||Math.round((i.price||0)*0.6); cogs+=cost*i.qty; });
       if(cogs){ lines.push({code:"5-100",d:cogs,c:0}); lines.push({code:"1-130",d:0,c:cogs}); }
-      P(d,t.id,"Penjualan "+t.method+(t.customer?" · "+t.customer:""),"pos",lines);
+      P(d,t.id,"Penjualan "+methodLabel(t)+(t.customer?" · "+t.customer:""),"pos",lines);
     });
     S.cashMoves.forEach(m=>{
       const d=(m.time||"").slice(0,10); if(!d) return;
