@@ -1466,6 +1466,21 @@
     </div>`;
   }
   const nativePrintPlugin = (window.Capacitor && window.Capacitor.registerPlugin) ? window.Capacitor.registerPlugin("NativePrint") : null;
+  const saveFilePlugin = (window.Capacitor && window.Capacitor.registerPlugin) ? window.Capacitor.registerPlugin("SaveFile") : null;
+  function blobToBase64(blob){
+    return new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onloadend=()=>resolve(String(reader.result).split(",")[1]||"");
+      reader.onerror=reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+  // Simpan file lewat plugin native (MediaStore) di APK -- trik <a download> di WebView
+  // sering diam-diam tidak melakukan apa-apa (toast sukses tapi filenya tidak pernah ada).
+  async function saveFileNative(blob, filename, mimeType){
+    const data = await blobToBase64(blob);
+    await saveFilePlugin.save({ data, filename, mimeType });
+  }
   function applyPaperWidth(){
     const mm = S.settings.paperWidth==="58" ? 58 : 80;
     const inner = mm-6;
@@ -1499,10 +1514,9 @@
         try{ await navigator.share({files:[file], title:"Struk "+id}); return; }
         catch(e){ if(e && e.name==="AbortError") return; }
       }
-      if(native){
-        const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
-        a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1500);
-        toast("Gambar struk diunduh — cek folder Download","good");
+      if(native && saveFilePlugin){
+        try{ await saveFileNative(blob, name, "image/png"); toast("Gambar struk disimpan — cek folder Download","good"); }
+        catch(e){ toast("Gagal menyimpan gambar struk: "+(e&&e.message||"coba lagi"),"bad"); }
         return;
       }
       const url = URL.createObjectURL(blob);
@@ -2687,13 +2701,18 @@
         if(navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:"Backup KASIRIN"}); done=true; }
       }catch(e){ if(e && e.name==="AbortError") return; }
     }
-    if(!done){
+    let savedNative=false;
+    if(!done && native && saveFilePlugin){
+      try{ await saveFileNative(blob, name, "application/json"); savedNative=true; }
+      catch(e){ toast("Gagal menyimpan backup: "+(e&&e.message||"coba lagi"),"bad"); return; }
+    }
+    if(!done && !savedNative){
       const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
       a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1500);
     }
     localStorage.setItem("kasirpro.lastBackup", new Date().toISOString());
     renderLastBackup(); renderBackupNag();
-    toast(done?"Backup dibagikan — simpan filenya di tempat aman":"Backup berhasil diunduh — simpan filenya di tempat aman","good");
+    toast(done?"Backup dibagikan — simpan filenya di tempat aman":"Backup disimpan di folder Download — simpan filenya di tempat aman","good");
   }
   $("#exportBtn").addEventListener("click",doBackup);
   function renderBackupNag(){
