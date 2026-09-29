@@ -962,6 +962,17 @@
     return (S.settings.store||"").trim().toUpperCase().replace(/[^A-Z0-9]+/g,"");
   }
   function generateLicense(storeKey){ return `KASIRIN-PRO-${storeKey}-${LICENSE_SECRET}`; }
+  // Kode darurat reset PIN Admin, dipakai kalau pemilik toko lupa PIN DAN tidak simpan kode
+  // pemulihan pribadinya. Dihitung dari Nama Toko + secret ini secara offline (mirip lisensi
+  // PRO) -- pemilik toko WA admin KASIRIN kasih Nama Toko, admin hitungkan kodenya, tanpa perlu
+  // internet/server di sisi aplikasi.
+  const PIN_RESET_SECRET = "KASIRIN-RESET-7719";
+  function generatePinResetCode(storeKey){
+    const s=storeKey+PIN_RESET_SECRET;
+    let h=0; for(let i=0;i<s.length;i++){ h=((h<<5)-h+s.charCodeAt(i))|0; }
+    const code=Math.abs(h).toString(36).toUpperCase().padStart(6,"0").slice(0,6);
+    return code.slice(0,3)+"-"+code.slice(3);
+  }
   function checkPro(){
     const storeKey=getStoreLicenseKey();
     if(!storeKey) return false;
@@ -2407,21 +2418,26 @@
   });
   let forgotTries=0;
   function forgotPin(){
-    if(!S.recovery){ toast("Belum ada kode pemulihan di HP ini. Pakai Restore backup atau Hapus Semua Data.","bad"); return; }
+    const storeKey=getStoreLicenseKey();
     modal({title:"Pulihkan PIN Admin", okText:"Ganti PIN",
-      bodyHTML:`<div class="field"><label>Kode Pemulihan</label><input class="input mono" id="fpCode" autocomplete="off" placeholder="XXXXX-XXXXX"></div>
+      bodyHTML:`${S.recovery?"":'<p class="acc-note" style="margin:0 0 10px">Belum ada kode pemulihan pribadi di HP ini. Kalau tidak punya, hubungi admin KASIRIN lewat WhatsApp — sebutkan Nama Toko persis <strong>"'+esc(S.settings.store||"-")+'"</strong> untuk minta Kode Reset darurat.</p>'}
+        <div class="field"><label>Kode Pemulihan Pribadi ${S.recovery?"":"(tidak ada)"}</label><input class="input mono" id="fpCode" autocomplete="off" placeholder="XXXXX-XXXXX" ${S.recovery?"":"disabled"}></div>
+        <div class="field"><label>ATAU Kode Reset dari Admin KASIRIN</label><input class="input mono" id="fpSupportCode" autocomplete="off" placeholder="XXX-XXX"></div>
         <div class="field"><label>PIN Baru (4–6 angka)</label><input class="input" id="fpPin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></div>
-        <div class="field"><label>Ulangi PIN Baru</label><input class="input" id="fpPin2" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></div>`,
+        <div class="field"><label>Ulangi PIN Baru</label><input class="input" id="fpPin2" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></div>
+        <div class="row-flex" style="margin-top:6px"><a class="btn sm" target="_blank" rel="noopener" href="https://wa.me/${UPGRADE_WA_NUMBER}?text=${encodeURIComponent("Halo kak, saya lupa PIN Admin KASIRIN dan tidak punya kode pemulihan.\n\nNama Toko: "+(S.settings.store||"-")+"\n\nMohon kode reset darurat ya.")}">💬 Minta Kode Reset lewat WA</a></div>`,
       onOk:()=>{
         if(forgotTries>=5){ toast("Terlalu banyak percobaan. Tutup dan buka lagi aplikasinya.","bad"); return false; }
         const pin=$("#fpPin").value.trim(), pin2=$("#fpPin2").value.trim();
-        if(hashPin(normRecovery($("#fpCode").value))!==S.recovery){ forgotTries++; toast("Kode pemulihan salah","bad"); return false; }
+        const personalOk = S.recovery && hashPin(normRecovery($("#fpCode").value))===S.recovery;
+        const supportOk = storeKey && normRecovery($("#fpSupportCode").value)===normRecovery(generatePinResetCode(storeKey));
+        if(!personalOk && !supportOk){ forgotTries++; toast("Kode pemulihan/reset salah","bad"); return false; }
         if(!/^\d{4,6}$/.test(pin)){ toast("PIN harus 4–6 angka","bad"); return false; }
         if(pin!==pin2){ toast("Ulangi PIN tidak sama","bad"); return false; }
         const admin=(S.users||[]).find(u=>u.role==="Admin");
         if(!admin){ toast("Akun Admin tidak ditemukan","bad"); return false; }
         admin.pin=hashPin(pin); admin.active=true; forgotTries=0;
-        audit("PIN Admin dipulihkan","lewat kode pemulihan");
+        audit("PIN Admin dipulihkan","lewat "+(personalOk?"kode pemulihan pribadi":"kode reset admin KASIRIN"));
         save(); showLogin();
         toast("PIN diganti. Silakan masuk dengan PIN baru.","good");
       }});
