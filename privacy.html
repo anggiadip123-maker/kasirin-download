@@ -26,11 +26,12 @@
   <p>KASIRIN adalah aplikasi kasir dan pembukuan untuk usaha kecil. Kami membuatnya agar data toko kamu tetap milik kamu sendiri.</p>
 
   <h2>Data yang disimpan</h2>
-  <p>Semua data yang kamu masukkan — nama toko, nomor telepon, produk, transaksi, pembukuan, akun kasir, dan PIN — <strong>disimpan hanya di perangkat kamu</strong> (penyimpanan lokal aplikasi). Kami tidak menjalankan server yang menampung data toko kamu, dan tidak dapat melihat, mengambil, atau memulihkannya.</p>
+  <p>Semua data yang kamu masukkan — nama toko, nomor telepon, produk, transaksi, pembukuan, akun kasir, dan PIN — <strong>disimpan utamanya di perangkat kamu</strong> (penyimpanan lokal aplikasi). Kami tidak menjalankan server yang menampilkan atau mengelola data toko kamu sehari-hari.</p>
 
   <h2>Data yang dikirim keluar perangkat</h2>
   <ul>
-    <li><strong>Permintaan upgrade PRO:</strong> saat kamu menekan tombol "Chat WA Admin", nama toko dikirim ke catatan pengembang agar permintaan upgrade bisa diproses. Data lain (transaksi, produk, PIN) tidak ikut terkirim.</li>
+    <li><strong>Backup Otomatis ke Cloud:</strong> kalau fitur ini aktif (bisa dimatikan kapan saja di User &amp; Setting &rarr; Data), seluruh data toko (produk, transaksi, pembukuan) dikirim dan disimpan sebagai satu file cadangan di Google Drive milik pengembang KASIRIN, sekali sehari saat aplikasi dibuka. Ini semata untuk membantu pemulihan darurat kalau kamu kehilangan HP tanpa sempat backup manual. Data ini tidak dipakai untuk tujuan lain dan tidak dibagikan ke pihak ketiga.</li>
+    <li><strong>Permintaan upgrade PRO:</strong> saat kamu menekan tombol "Chat WA Admin" atau "Bayar & aktifkan PRO", nama toko (dan nominal pembayaran kalau memakai alur bayar DANA) dikirim ke catatan pengembang agar permintaan upgrade bisa diproses. Data lain (transaksi, produk, PIN) tidak ikut terkirim lewat jalur ini.</li>
     <li><strong>WhatsApp:</strong> tombol tersebut membuka WhatsApp dengan pesan yang sudah terisi. Pengiriman pesannya sepenuhnya kamu yang memutuskan.</li>
     <li><strong>Pustaka pihak ketiga:</strong> beberapa fitur (impor Excel, gambar struk) memuat pustaka open-source dari jaringan pengantar konten (CDN) saat perangkat online. Tidak ada data toko kamu yang dikirim ke sana.</li>
   </ul>
@@ -39,7 +40,7 @@
   <p>Aplikasi tidak meminta akses kontak, lokasi, atau mikrofon. Kamera hanya dipakai bila kamu memilih fitur pindai barcode. Berkas hanya dibaca saat kamu memilih sendiri gambar produk, gambar QRIS, atau berkas backup.</p>
 
   <h2>Backup dan keamanan</h2>
-  <p>Kamu bertanggung jawab menyimpan backup (menu User &amp; Setting &rarr; Data) dan kode pemulihan PIN. Karena data ada di perangkat, kehilangan atau reset perangkat tanpa backup berarti data tidak dapat dikembalikan.</p>
+  <p>Kamu bertanggung jawab menyimpan backup manual (menu User &amp; Setting &rarr; Data) dan kode pemulihan PIN. Backup Otomatis ke Cloud (lihat di atas) membantu sebagai cadangan tambahan, tapi bukan pengganti backup manual rutin.</p>
 
   <h2>Anak-anak</h2>
   <p>KASIRIN ditujukan untuk pelaku usaha dan tidak ditujukan bagi anak di bawah 13 tahun.</p>

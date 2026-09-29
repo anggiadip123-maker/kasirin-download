@@ -836,6 +836,11 @@
           </div>
           <p style="color:var(--muted);font-size:11.5px;margin:6px 0 0">"Kosongkan Riwayat Transaksi" menghapus semua penjualan, retur, kas, dan pembukuan — tapi produk, pengguna, dan pengaturan toko tetap ada. Cocok dipakai sekali sebelum mulai transaksi sungguhan, setelah selesai coba-coba.</p>
           <p id="lastBackupInfo" style="color:var(--muted);font-size:12px;margin:10px 0 0"></p>
+          <div class="acc-bar" style="margin-top:14px"><div class="section-title" style="margin:0;font-size:13px">Backup Otomatis ke Cloud</div></div>
+          <div class="toggle" style="margin-top:8px"><button class="switch" id="cloudBackupSwitch" type="button"></button><span>Aktifkan backup otomatis (butuh internet)</span></div>
+          <p style="color:var(--muted);font-size:11.5px;margin:6px 0 0"><strong>Penting:</strong> kalau aktif, seluruh data toko (produk, transaksi, laporan keuangan) otomatis dikirim &amp; tersimpan di Google Drive milik penjual/pengembang KASIRIN setiap hari — bukan Drive milikmu sendiri. Ini dipakai sebagai cadangan darurat kalau kamu lupa backup manual dan HP hilang/rusak. Matikan kalau tidak ingin data toko tersimpan di luar HP ini.</p>
+          <div class="row-flex" style="margin-top:10px"><button class="btn sm" id="cloudRestoreBtn" type="button">☁️ Pulihkan dari Cloud</button></div>
+          <p id="lastCloudBackupInfo" style="color:var(--muted);font-size:12px;margin:8px 0 0"></p>
         </div>
         <div class="card card-p admin-only" style="grid-column:1/-1">
           <div class="acc-bar"><div class="section-title" style="margin:0">Log Aktivitas</div><div class="spacer"></div><button class="btn sm" id="auditCsv">Export CSV</button></div>
@@ -894,6 +899,8 @@
     <p class="login-hint" style="margin-bottom:8px">Pindah dari HP lama dan sudah punya file backup?</p>
     <label class="btn block" for="suRestoreFile" style="cursor:pointer">📂 Pulihkan dari Backup (.json)</label>
     <input type="file" id="suRestoreFile" accept=".json,application/json,text/plain,*/*" hidden />
+    <button class="btn block" id="suCloudRestoreBtn" type="button" style="margin-top:8px">☁️ Pulihkan dari Cloud (pakai Nama Toko)</button>
+    <p class="login-hint" style="margin-top:4px">Isi Nama Toko di atas persis seperti sebelumnya, baru tekan tombol ini. Cuma bisa dipakai kalau Backup Otomatis ke Cloud pernah aktif di HP lama.</p>
   </div>
 </div>
 
@@ -1159,6 +1166,7 @@
     renderBackupNag();
     renderStockNag();
     renderDueNag();
+    cloudBackupIfDue();
     const tx=txToday();
     const cs=cashSummary();
     const sales=sumBy(tx,t=>t.total);
@@ -2273,11 +2281,13 @@
     $("#tableModeSwitch").classList.toggle("on", !!s.tableMode);
     $("#setTableCount").value = s.tableCount==null?8:s.tableCount;
     $("#themeSwitch").classList.toggle("on", curTheme()==="dark");
+    $("#cloudBackupSwitch").classList.toggle("on", s.cloudBackupEnabled!==false);
     applyAccess();
     renderUsers();
     renderAudit();
     renderPermTable();
     renderLastBackup();
+    renderLastCloudBackup();
     renderLicense();
     renderRecoveryInfo();
     const hb=$("#helpWaBtn"); if(hb) hb.href="https://wa.me/"+UPGRADE_WA_NUMBER+"?text="+encodeURIComponent("Halo kak, saya butuh bantuan KASIRIN.\n\nNama Toko: "+(S.settings.store||"-")+"\nMasalah: ");
@@ -2549,6 +2559,60 @@
     const iso=localStorage.getItem("kasirpro.lastBackup");
     el.textContent = iso ? "Terakhir backup: "+fmtBackupTime(iso) : "Belum pernah backup";
   }
+  function renderLastCloudBackup(){
+    const el=$("#lastCloudBackupInfo"); if(!el) return;
+    const iso=localStorage.getItem("kasirpro.lastCloudBackup");
+    el.textContent = iso ? "Backup cloud terakhir: "+fmtBackupTime(iso) : "Belum pernah backup ke cloud";
+  }
+  function utf8ToBase64(str){
+    const bytes=new TextEncoder().encode(str);
+    let binary=""; bytes.forEach(b=>binary+=String.fromCharCode(b));
+    return btoa(binary);
+  }
+  function base64ToUtf8(b64){
+    const binary=atob(b64);
+    const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  }
+  const CLOUD_BACKUP_HOURS=24;
+  let cloudBackupInFlight=false;
+  async function cloudBackupIfDue(){
+    if(cloudBackupInFlight) return;
+    if(S.settings.cloudBackupEnabled===false) return;
+    if(!S.settings.store) return;
+    if(navigator.onLine===false) return;
+    const last=localStorage.getItem("kasirpro.lastCloudBackup");
+    if(last && (Date.now()-new Date(last).getTime())<CLOUD_BACKUP_HOURS*3600*1000) return;
+    cloudBackupInFlight=true;
+    try{
+      const dataBase64=utf8ToBase64(JSON.stringify(S));
+      const r=await fetch(UPGRADE_LOG_URL,{method:"POST",body:JSON.stringify({action:"backup",namaToko:S.settings.store,dataBase64})});
+      const j=await r.json();
+      if(j.result==="ok"){ localStorage.setItem("kasirpro.lastCloudBackup", new Date().toISOString()); renderLastCloudBackup(); }
+    }catch(e){ /* gagal diam-diam, dicoba lagi nanti otomatis */ }
+    cloudBackupInFlight=false;
+  }
+  async function cloudRestore(namaTokoOverride){
+    const nama=namaTokoOverride!=null?namaTokoOverride:(S.settings.store||"");
+    if(!nama.trim()){ toast("Isi Nama Toko dulu","bad"); return; }
+    try{
+      toast("Mengecek backup cloud...");
+      const r=await fetch(UPGRADE_LOG_URL+"?action=getBackup&toko="+encodeURIComponent(nama));
+      const j=await r.json();
+      if(j.result!=="ok" || !j.data){ toast("Belum ada backup cloud untuk nama toko ini","bad"); return; }
+      confirmAsk("Pulihkan data toko dari backup cloud terakhir ("+(j.updated?fmtBackupTime(j.updated):"-")+")? Data saat ini akan ditimpa.",()=>{
+        localStorage.setItem(KEY, j.data);
+        toast("Berhasil dipulihkan dari cloud, memuat ulang...","good");
+        setTimeout(()=>location.reload(),600);
+      },"Pulihkan");
+    }catch(e){ toast("Gagal terhubung ke server backup","bad"); }
+  }
+  $("#cloudBackupSwitch").addEventListener("click",()=>{
+    const on=$("#cloudBackupSwitch").classList.toggle("on");
+    S.settings.cloudBackupEnabled=on; save();
+    toast(on?"Backup otomatis ke cloud diaktifkan":"Backup otomatis ke cloud dimatikan","good");
+  });
+  $("#cloudRestoreBtn").addEventListener("click",()=>cloudRestore());
   async function copyText(text){
     try{ await navigator.clipboard.writeText(text); return true; }
     catch(e){
@@ -2754,6 +2818,7 @@
   }
   $("#restoreFile").addEventListener("change",e=>handleRestoreFile(e,false));
   $("#suRestoreFile").addEventListener("change",e=>handleRestoreFile(e,true));
+  $("#suCloudRestoreBtn").addEventListener("click",()=>cloudRestore($("#suStore").value));
   $("#clearTxBtn").addEventListener("click",()=>{
     modal({title:"Kosongkan Riwayat Transaksi", okText:"Kosongkan Permanen",
       bodyHTML:`<p style="margin:0 0 10px">Semua <strong>transaksi, retur, kas masuk/keluar, closing kasir</strong>, dan data pembukuan (pembelian, biaya, pembayaran, jurnal manual, stok opname) akan dihapus permanen dan tidak bisa dikembalikan.</p>
