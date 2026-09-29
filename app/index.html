@@ -285,6 +285,7 @@
   .totals .t-row .mono{color:var(--ink)}
   .totals .t-row.grand{color:var(--ink);font-family:"Instrument Sans",sans-serif;font-weight:800;font-size:19px;border-top:1px solid var(--gold);padding-top:12px;margin-top:3px}
   .pay-methods{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:2px 18px 12px}
+  .pay-methods .pm:last-child:nth-child(odd){grid-column:1/-1}
   .pm{padding:11px 6px;border-radius:8px;border:1px solid var(--line-strong);background:transparent;font-weight:600;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);transition:border-color .15s,color .15s,background .15s}
   .pm:hover{border-color:var(--ink);color:var(--ink)}
   .pm.active{border-color:var(--accent);background:var(--accent-tint);color:var(--accent-strong)}
