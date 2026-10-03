@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hapus Akun — KASIRIN</title>
+<link rel="icon" type="image/png" href="icon.png">
+<style>
+  :root{--navy:#0F2C56;--bg:#F6F8FB;--ink:#101828;--muted:#5B6678;--line:#E2E7EF;--card:#fff;--bad:#C0392B;--good:#1E8E5A}
+  @media (prefers-color-scheme:dark){:root{--bg:#0B1220;--ink:#EEF2F8;--muted:#9AA7BA;--line:#22304A;--navy:#7FA6E6;--card:#121B2E;--bad:#F07167;--good:#4CC38A}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.6}
+  main{max-width:520px;margin:0 auto;padding:32px 20px 56px}
+  h1{font-size:26px;margin:0 0 8px;color:var(--navy)}
+  p,li{font-size:15px}
+  .muted{color:var(--muted)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:20px 0}
+  label{display:block;font-size:13px;font-weight:600;margin:12px 0 4px}
+  input{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--bg);color:var(--ink)}
+  input:focus-visible,button:focus-visible{outline:3px solid var(--navy);outline-offset:2px}
+  button{width:100%;margin-top:16px;padding:13px;border:0;border-radius:10px;font:inherit;font-weight:700;cursor:pointer;background:var(--navy);color:#fff}
+  button.danger{background:var(--bad)}
+  button:disabled{opacity:.6;cursor:wait}
+  .err{color:var(--bad);font-size:14px;min-height:1.2em;margin:10px 0 0}
+  .ok{color:var(--good);font-weight:600}
+  a{color:var(--navy);font-weight:600}
+</style>
+</head>
+<body>
+<main>
+  <p style="margin:0 0 18px"><a href="./">&larr; Kembali</a></p>
+  <h1>Hapus akun KASIRIN</h1>
+  <p class="muted">Halaman ini untuk menghapus <b>akun owner</b> KASIRIN beserta data toko yang tersimpan di server.</p>
+
+  <p>Yang akan dihapus permanen:</p>
+  <ul>
+    <li>Akun owner (email dan password)</li>
+    <li>Toko di cloud, termasuk produk, pengguna, transaksi, kas, dan pembukuan yang tersimpan di server</li>
+    <li>Sambungan semua HP kasir ke toko tersebut</li>
+    <li>Status KASIRIN PRO yang terikat ke akun ini</li>
+  </ul>
+  <p class="muted">Data yang tersimpan di dalam HP tidak ikut terhapus. Hapus dari aplikasi lewat <b>User &amp; Setting &rarr; Data &rarr; Hapus Semua Data</b>, atau hapus aplikasinya.</p>
+
+  <div class="card" id="step1">
+    <form id="loginForm" novalidate>
+      <label for="email">Email owner</label>
+      <input id="email" type="email" autocomplete="username" required>
+      <label for="pass">Password</label>
+      <input id="pass" type="password" autocomplete="current-password" required>
+      <button id="loginBtn" type="submit">Masuk</button>
+      <p class="err" id="loginErr" role="alert"></p>
+    </form>
+  </div>
+
+  <div class="card" id="step2" hidden>
+    <p style="margin:0">Masuk sebagai <b id="who"></b>.</p>
+    <p id="storeList" class="muted" style="margin:8px 0 0"></p>
+    <form id="delForm" novalidate>
+      <label for="confirm">Ketik HAPUS untuk konfirmasi</label>
+      <input id="confirm" autocomplete="off">
+      <button id="delBtn" class="danger" type="submit">Hapus akun permanen</button>
+      <p class="err" id="delErr" role="alert"></p>
+    </form>
+  </div>
+
+  <div class="card" id="done" hidden>
+    <p class="ok" style="margin:0">Akun dan data cloud sudah dihapus.</p>
+    <p class="muted" style="margin:8px 0 0">Terima kasih sudah memakai KASIRIN.</p>
+  </div>
+
+  <p class="muted" style="font-size:14px">Lupa password atau tidak bisa masuk? Kirim permintaan hapus akun dari email yang terdaftar ke <b>anggiadip123@gmail.com</b> atau WhatsApp <b>0897-7031-194</b>. Kami proses dalam 7 hari kerja. Lihat juga <a href="privacy.html">Kebijakan Privasi</a>.</p>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
+<script>
+  // Samakan dengan nilai SUPABASE_URL dan SUPABASE_ANON_KEY di aplikasi.
+  const SUPABASE_URL = "";
+  const SUPABASE_ANON_KEY = "";
+
+  const $ = s => document.querySelector(s);
+  const errText = e => {
+    const m = String((e && (e.message || e.error_description)) || e || "");
+    if (/Invalid login credentials/i.test(m)) return "Email atau password salah.";
+    if (/Email not confirmed/i.test(m)) return "Email belum dikonfirmasi.";
+    if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return "Tidak bisa terhubung ke server. Cek internet.";
+    return m || "Terjadi kesalahan.";
+  };
+  let sb = null;
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !window.supabase) {
+    $("#loginErr").textContent = "Halaman ini belum siap dipakai. Hubungi kontak di bawah untuk menghapus akun.";
+    $("#loginBtn").disabled = true;
+  } else {
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+  }
+
+  $("#loginForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const email = $("#email").value.trim(), password = $("#pass").value;
+    if (!email || !password) { $("#loginErr").textContent = "Isi email dan password."; return; }
+    $("#loginBtn").disabled = true; $("#loginErr").textContent = "";
+    try {
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      $("#who").textContent = data.user.email;
+      const { data: stores } = await sb.rpc("my_stores");
+      const own = (stores || []).filter(s => s.role === "owner").map(s => s.name);
+      $("#storeList").textContent = own.length ? "Toko yang akan dihapus: " + own.join(", ") + "." : "Akun ini belum punya toko di cloud.";
+      $("#step1").hidden = true; $("#step2").hidden = false; $("#confirm").focus();
+    } catch (x) { $("#loginErr").textContent = errText(x); }
+    finally { $("#loginBtn").disabled = false; }
+  });
+
+  $("#delForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    if ($("#confirm").value.trim().toUpperCase() !== "HAPUS") { $("#delErr").textContent = "Ketik HAPUS untuk melanjutkan."; return; }
+    $("#delBtn").disabled = true; $("#delErr").textContent = "";
+    try {
+      const { error } = await sb.rpc("delete_my_account");
+      if (error) throw error;
+      await sb.auth.signOut().catch(() => {});
+      $("#step2").hidden = true; $("#done").hidden = false;
+    } catch (x) { $("#delErr").textContent = errText(x); $("#delBtn").disabled = false; }
+  });
+</script>
+</body>
+</html>

@@ -13,6 +13,7 @@
   h1{font-size:28px;margin:0 0 4px;color:var(--navy)}
   h2{font-size:18px;margin:28px 0 8px}
   p,li{font-size:15.5px} .meta{color:var(--muted);font-size:13px;margin:0 0 20px}
+  li{margin:6px 0}
   a{color:var(--navy);font-weight:600}
   hr{border:0;border-top:1px solid var(--line);margin:28px 0}
 </style>
@@ -21,32 +22,54 @@
 <main>
   <p style="margin:0 0 18px"><a href="./">&larr; Kembali</a></p>
   <h1>Kebijakan Privasi KASIRIN</h1>
-  <p class="meta">Berlaku sejak 26 September 2026</p>
+  <p class="meta">Diperbarui 3 Oktober 2026</p>
 
-  <p>KASIRIN adalah aplikasi kasir dan pembukuan untuk usaha kecil. Kami membuatnya agar data toko kamu tetap milik kamu sendiri.</p>
+  <p>KASIRIN adalah aplikasi kasir dan pembukuan untuk usaha kecil. Kebijakan ini menjelaskan data apa yang disimpan, ke mana data dikirim, dan cara menghapusnya.</p>
 
-  <h2>Data yang disimpan</h2>
-  <p>Semua data yang kamu masukkan — nama toko, nomor telepon, produk, transaksi, pembukuan, akun kasir, dan PIN — <strong>disimpan utamanya di perangkat kamu</strong> (penyimpanan lokal aplikasi). Kami tidak menjalankan server yang menampilkan atau mengelola data toko kamu sehari-hari.</p>
+  <h2>Data yang disimpan di HP</h2>
+  <p>Nama toko, nomor telepon toko, produk, stok, transaksi, kas, pembukuan, daftar pengguna, dan PIN (disimpan dalam bentuk acak/hash, bukan angka aslinya) tersimpan di penyimpanan aplikasi di HP kamu. Kalau toko tidak disambungkan ke akun owner, data ini tidak dikirim ke mana pun.</p>
 
-  <h2>Data yang dikirim keluar perangkat</h2>
+  <h2>Data yang dikirim ke server (kalau memakai akun owner)</h2>
+  <p>Fitur <b>Sambung Owner &amp; HP Kasir</b> bersifat pilihan. Kalau kamu memakainya, data berikut disimpan di server database kami yang dikelola oleh <b>Supabase</b>:</p>
   <ul>
-    <li><strong>Backup Otomatis ke Cloud:</strong> kalau fitur ini aktif (bisa dimatikan kapan saja di User &amp; Setting &rarr; Data), seluruh data toko (produk, transaksi, pembukuan) dikirim dan disimpan sebagai satu file cadangan di Google Drive milik pengembang KASIRIN, sekali sehari saat aplikasi dibuka. Ini semata untuk membantu pemulihan darurat kalau kamu kehilangan HP tanpa sempat backup manual. Data ini tidak dipakai untuk tujuan lain dan tidak dibagikan ke pihak ketiga.</li>
-    <li><strong>Permintaan upgrade PRO:</strong> saat kamu menekan tombol "Chat WA Admin" atau "Bayar & aktifkan PRO", nama toko (dan nominal pembayaran kalau memakai alur bayar DANA) dikirim ke catatan pengembang agar permintaan upgrade bisa diproses. Data lain (transaksi, produk, PIN) tidak ikut terkirim lewat jalur ini.</li>
-    <li><strong>WhatsApp:</strong> tombol tersebut membuka WhatsApp dengan pesan yang sudah terisi. Pengiriman pesannya sepenuhnya kamu yang memutuskan.</li>
-    <li><strong>Pustaka pihak ketiga:</strong> beberapa fitur (impor Excel, gambar struk) memuat pustaka open-source dari jaringan pengantar konten (CDN) saat perangkat online. Tidak ada data toko kamu yang dikirim ke sana.</li>
+    <li><b>Akun owner:</b> alamat email dan password (password disimpan terenkripsi oleh Supabase).</li>
+    <li><b>Data toko:</b> nama toko, pengaturan struk, produk, harga, stok, daftar pengguna beserta hash PIN, transaksi penjualan dan retur, mutasi kas, laporan tutup shift, dan data pembukuan.</li>
+    <li><b>HP kasir:</b> setiap HP kasir mendapat ID acak tanpa email, nama HP yang kamu isi, dan waktu terakhir aktif.</li>
+  </ul>
+  <p>Data ini dipakai hanya untuk menyinkronkan toko kamu antara HP owner dan HP kasir, serta memulihkan data saat ganti HP. Data dikirim lewat koneksi terenkripsi (HTTPS). HP kasir tidak bisa membaca data penjualan dan pendapatan toko dari server; hanya akun owner yang bisa. Kami tidak menjual data dan tidak membagikannya ke pihak lain selain penyedia layanan yang disebut di halaman ini.</p>
+
+  <h2>Pembelian KASIRIN PRO</h2>
+  <ul>
+    <li><b>Lewat Google Play:</b> pembayaran diproses oleh Google. Kami tidak menerima nomor kartu atau data pembayaranmu. Yang kami simpan hanya token pembelian dan nomor pesanan Google Play, untuk memastikan PRO aktif di toko yang benar.</li>
+    <li><b>Lewat WhatsApp (aplikasi dari situs ini):</b> kamu memutuskan sendiri pesan yang dikirim. Setelah pembayaran dikonfirmasi, kami mengaktifkan PRO pada akun owner berdasarkan email yang kamu berikan.</li>
+  </ul>
+
+  <h2>Layanan pihak ketiga</h2>
+  <ul>
+    <li><b>Supabase</b> — database dan login akun owner (kalau fitur sambung owner dipakai).</li>
+    <li><b>Google Play</b> — pembelian PRO di aplikasi versi Play Store.</li>
+    <li><b>jsDelivr dan cdnjs</b> — tempat aplikasi mengunduh pustaka open-source untuk sinkron, impor Excel, dan gambar struk. Tidak ada data toko yang dikirim ke sana.</li>
+    <li><b>WhatsApp</b> — hanya terbuka kalau kamu menekan tombol bantuan atau pembelian lewat WhatsApp.</li>
   </ul>
 
   <h2>Izin perangkat</h2>
-  <p>Aplikasi tidak meminta akses kontak, lokasi, atau mikrofon. Kamera hanya dipakai bila kamu memilih fitur pindai barcode. Berkas hanya dibaca saat kamu memilih sendiri gambar produk, gambar QRIS, atau berkas backup.</p>
+  <p>Aplikasi memakai internet (untuk fitur sinkron) dan kamera (hanya saat kamu memakai pindai barcode). Aplikasi tidak meminta akses kontak, lokasi, atau mikrofon. Berkas hanya dibaca saat kamu sendiri memilih gambar produk, gambar QRIS, logo, atau berkas backup.</p>
 
-  <h2>Backup dan keamanan</h2>
-  <p>Kamu bertanggung jawab menyimpan backup manual (menu User &amp; Setting &rarr; Data) dan kode pemulihan PIN. Backup Otomatis ke Cloud (lihat di atas) membantu sebagai cadangan tambahan, tapi bukan pengganti backup manual rutin.</p>
+  <h2>Berapa lama data disimpan</h2>
+  <p>Data di server disimpan selama akun owner masih ada. Saat akun dihapus, toko, transaksi, dan sambungan HP kasir di server ikut dihapus saat itu juga. Data di HP tetap ada sampai kamu menghapusnya sendiri lewat menu <b>User &amp; Setting &rarr; Data &rarr; Hapus Semua Data</b> atau menghapus aplikasi.</p>
+
+  <h2>Menghapus akun dan data</h2>
+  <ul>
+    <li><b>Dari aplikasi:</b> buka <b>User &amp; Setting &rarr; Sambung Owner &amp; HP Kasir &rarr; Hapus akun owner &amp; data cloud</b>.</li>
+    <li><b>Dari web:</b> buka <a href="hapus-akun.html">halaman hapus akun</a>, masuk dengan email dan password owner, lalu hapus.</li>
+    <li><b>Tidak bisa masuk?</b> Kirim permintaan dari email yang terdaftar ke alamat kontak di bawah. Kami hapus dalam 7 hari kerja.</li>
+  </ul>
 
   <h2>Anak-anak</h2>
   <p>KASIRIN ditujukan untuk pelaku usaha dan tidak ditujukan bagi anak di bawah 13 tahun.</p>
 
   <h2>Perubahan kebijakan</h2>
-  <p>Jika kebijakan ini berubah, versi terbaru akan ditampilkan di halaman ini dengan tanggal pembaruan.</p>
+  <p>Jika kebijakan ini berubah, versi terbaru ditampilkan di halaman ini beserta tanggal pembaruannya.</p>
 
   <hr>
   <h2>Kontak</h2>
