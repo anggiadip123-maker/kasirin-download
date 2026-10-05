@@ -783,7 +783,7 @@
               <button class="btn primary sm" id="activateLicenseBtn">Aktifkan</button>
             </div>
           </div>
-          <p style="color:var(--muted);font-size:12px;margin:8px 0 0">Versi Gratis maksimal <strong id="freeLimitTxt"></strong> transaksi &amp; ada tulisan promosi kecil di struk. Upgrade PRO Rp99rb Lifetime untuk transaksi tanpa batas + struk bersih tanpa watermark.</p>
+          <p style="color:var(--muted);font-size:12px;margin:8px 0 0">Versi Gratis bisa dipakai <strong id="freeLimitTxt"></strong> &amp; ada tulisan promosi kecil di struk. Upgrade PRO Rp99rb Lifetime untuk transaksi tanpa batas + struk bersih tanpa watermark.</p>
           <div style="margin-top:12px"><button class="btn primary block" id="payFlowBtn" type="button">Bayar &amp; aktifkan PRO (DANA / QRIS)</button></div>
           <div class="field" style="margin-top:10px"><label>Atau lewat WhatsApp (salin &amp; kirim ke penjual)</label>
             <textarea class="input mono" id="upgradeMsg" readonly rows="5" style="resize:vertical"></textarea>
@@ -813,7 +813,7 @@
           <details><summary>Ganti HP atau pindah data</summary>
             <p>Di HP lama tekan <b>Backup Data</b> dan kirim filenya ke diri sendiri. Di HP baru pasang KASIRIN, lalu <b>Restore Data</b> di kartu Data. Data tersimpan di HP, jadi backup rutin itu penting.</p></details>
           <details><summary>Batas versi Gratis dan upgrade PRO</summary>
-            <p>Versi Gratis sampai 150 transaksi. PRO (Rp99rb, sekali bayar) tanpa batas dan struk tanpa tulisan promosi. Ketuk <b>Chat WA Admin</b> di kartu Lisensi, transfer, lalu masukkan kode yang dikirim.</p></details>
+            <p>Versi Gratis bisa dipakai 7 hari. PRO (Rp99rb, sekali bayar) tanpa batas waktu/transaksi dan struk tanpa tulisan promosi. Ketuk <b>Chat WA Admin</b> di kartu Lisensi, transfer, lalu masukkan kode yang dikirim.</p></details>
           <details><summary>Scan barcode tidak jalan</summary>
             <p>Scanner USB/Bluetooth bekerja seperti keyboard: ketuk kolom pencarian di Kasir lalu scan. Untuk kamera, izinkan akses kamera bila diminta.</p></details>
           <div class="row-flex" style="margin-top:12px"><a class="btn primary sm" style="text-decoration:none" id="helpWaBtn" href="#" target="_blank" rel="noopener">Hubungi dukungan (WhatsApp)</a></div>
@@ -950,14 +950,20 @@
   const uid = () => Math.random().toString(36).slice(2,9);
   const num = v => { const n=parseFloat(String(v).replace(/[^0-9.-]/g,"")); return isFinite(n)?n:0; };
   const addDay = ds => { const [y,m,d]=String(ds).split("-").map(Number); const dt=new Date(Date.UTC(y,(m||1)-1,d||1)); dt.setUTCDate(dt.getUTCDate()+1); return dt.toISOString().slice(0,10); };
+  const addDays = (ds,n) => { const [y,m,d]=String(ds).split("-").map(Number); const dt=new Date(Date.UTC(y,(m||1)-1,d||1)); dt.setUTCDate(dt.getUTCDate()+n); return dt.toISOString().slice(0,10); };
+  const dayDiff = (dsA,dsB) => { const [y1,m1,d1]=String(dsA).split("-").map(Number), [y2,m2,d2]=String(dsB).split("-").map(Number); return Math.round((Date.UTC(y1,(m1||1)-1,d1||1)-Date.UTC(y2,(m2||1)-1,d2||1))/864e5); };
   const fmtD = ds => { const [y,m,d]=String(ds).split("-").map(Number); if(!y) return ds||"—"; return new Date(y,(m||1)-1,d||1).toLocaleDateString("id-ID",{day:"2-digit",month:"short",year:"numeric"}); };
 
   /* ---------------- Lisensi PRO (offline, per-toko/Nama Toko) ---------------- */
-  const FREE_TRANSACTION_LIMIT = 150;
+  const FREE_TRIAL_DAYS = 7;
   const LICENSE_SECRET = "SAGOF99";
   const UPGRADE_WA_NUMBER = "628977031194";
-  const FREE_WARN_AT = 130;
   const UPGRADE_LOG_URL = "https://script.google.com/macros/s/AKfycbye6IHwnpUS0bUWwIoDhAMiyz8T9Qu1aXB1kjG05CehQULfOPGK5Aw0oQnH4O73O3Ny/exec";
+  function trialDaysLeft(){
+    const end=addDays(S.trialStart||todayStr(),FREE_TRIAL_DAYS);
+    return dayDiff(end,todayStr());
+  }
+  function trialExpired(){ return trialDaysLeft()<=0; }
   function getStoreLicenseKey(){
     return (S.settings.store||"").trim().toUpperCase().replace(/[^A-Z0-9]+/g,"");
   }
@@ -1087,6 +1093,7 @@
     if(!S.tableCarts) S.tableCarts={};
     if(S.activeTable===undefined) S.activeTable=null;
     if(S.setupDone===undefined) S.setupDone=true;
+    if(!S.trialStart) S.trialStart=todayStr();
   }
   function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 
@@ -1587,7 +1594,7 @@
   function checkout(){
     if(!S.cart.length){ toast("Keranjang kosong","bad"); return; }
     if(accLocked(todayStr())){ toast("Periode akuntansi sudah ditutup s/d "+S.acc.closedUntil,"bad"); return; }
-    if(!checkPro() && S.transactions.filter(t=>t.type!=="RETUR").length>=FREE_TRANSACTION_LIMIT){
+    if(!checkPro() && trialExpired()){
       showLimitDialog();
       return;
     }
@@ -2644,7 +2651,8 @@
     if(!badge) return;
     const storeKey=getStoreLicenseKey();
     devEl.value=storeKey||"(isi Nama Toko dulu)";
-    limitEl.textContent=FREE_TRANSACTION_LIMIT;
+    const daysLeft=trialDaysLeft();
+    limitEl.textContent=FREE_TRIAL_DAYS+" hari ("+(daysLeft>0?"sisa "+daysLeft+" hari":"masa coba habis")+")";
     if(checkPro()){
       badge.innerHTML='<span class="pill good">PRO Aktif</span>';
       wrap.style.display="none";
@@ -2663,7 +2671,6 @@
   function logUpgradeLead(){
     try{ fetch(UPGRADE_LOG_URL,{method:"POST",body:JSON.stringify({namaToko:S.settings.store||""})}).catch(()=>{}); }catch(e){}
   }
-  const freeTxCount=()=>S.transactions.filter(t=>t.type!=="RETUR").length;
   function goLicense(){
     if(!can("setting")){ toast("Minta Admin memasukkan kode lisensi di User & Setting","bad"); return; }
     location.hash="setting";
@@ -2673,19 +2680,18 @@
     const el=$("#limitNag"); if(!el) return;
     el.innerHTML="";
     if(checkPro()) return;
-    const n=freeTxCount();
-    if(n<FREE_WARN_AT) return;
-    const left=FREE_TRANSACTION_LIMIT-n;
+    const left=trialDaysLeft();
+    if(left>2) return;
     const txt = left>0
-      ? `<strong>Sisa ${left} transaksi gratis.</strong> Upgrade PRO supaya kasir tidak berhenti.`
-      : `<strong>Batas ${FREE_TRANSACTION_LIMIT} transaksi gratis tercapai.</strong> Upgrade PRO untuk lanjut mencatat penjualan.`;
+      ? `<strong>Masa coba gratis tinggal ${left} hari lagi.</strong> Upgrade PRO supaya kasir tidak berhenti.`
+      : `<strong>Masa coba gratis ${FREE_TRIAL_DAYS} hari sudah habis.</strong> Upgrade PRO untuk lanjut mencatat penjualan.`;
     el.innerHTML=`<div class="nag"><div class="nag-txt">${txt}</div>${can("setting")?'<button class="btn sm primary" id="limitNagBtn" type="button">Lihat PRO</button>':""}</div>`;
     const b=$("#limitNagBtn"); if(b) b.addEventListener("click",goLicense);
   }
   function showLimitDialog(){
     const url="https://wa.me/"+UPGRADE_WA_NUMBER+"?text="+encodeURIComponent(upgradeWaMsg());
-    modal({title:"Batas versi Gratis tercapai", okText:"Saya sudah punya kode",
-      bodyHTML:`<p style="margin:0 0 12px;font-size:13.5px;line-height:1.6">Kamu sudah memakai ${FREE_TRANSACTION_LIMIT} transaksi gratis. Data dan laporan tetap aman dan bisa dibuka. Upgrade PRO untuk lanjut mencatat penjualan.</p>
+    modal({title:"Masa coba gratis habis", okText:"Saya sudah punya kode",
+      bodyHTML:`<p style="margin:0 0 12px;font-size:13.5px;line-height:1.6">Masa coba gratis ${FREE_TRIAL_DAYS} hari sudah habis. Data dan laporan tetap aman dan bisa dibuka. Upgrade PRO untuk lanjut mencatat penjualan.</p>
         <div style="display:flex;justify-content:space-between;padding:10px 12px;margin-bottom:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);font-size:13.5px"><span>PRO, sekali bayar</span><strong>Rp99.000</strong></div>
         <button class="btn primary block" id="limitPayBtn" type="button" style="margin-bottom:8px">Bayar &amp; aktifkan PRO (DANA / QRIS)</button>
         <a class="btn block" style="text-decoration:none" id="limitWaBtn" href="${url}" target="_blank" rel="noopener">Atau lewat WhatsApp</a>`,
