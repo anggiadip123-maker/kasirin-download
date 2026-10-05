@@ -742,7 +742,7 @@
           </div>
           <div class="field"><label>Nama Kasir Default</label><input class="input" id="setCashier" /></div>
           <div class="field"><label>Role Default</label>
-            <select class="input" id="setRole"><option>Admin</option><option>Supervisor</option><option>Kasir</option></select>
+            <select class="input" id="setRole"><option>Admin</option><option>Owner</option><option>Supervisor</option><option>Kasir</option></select>
           </div>
         </div>
         <div class="card card-p admin-only">
@@ -1030,6 +1030,7 @@
   }
   const ACCESS = {
     Admin:["dashboard","kasir","kas","produk","opname","laporan","akuntansi","setting"],
+    Owner:["dashboard","kas","laporan","akuntansi"],
     Supervisor:["dashboard","kasir","kas","produk","opname","laporan"],
     Kasir:["dashboard","kasir","kas"],
   };
@@ -2312,7 +2313,7 @@
   }
   function renderPermTable(){
     const menus=[["dashboard","Dashboard"],["kasir","Kasir / POS"],["kas","Cash Management"],["produk","Produk & Stok"],["opname","Stok Opname"],["laporan","Laporan"],["akuntansi","Akuntansi"],["setting","User & Setting"]];
-    const roles=["Admin","Supervisor","Kasir"];
+    const roles=["Admin","Owner","Supervisor","Kasir"];
     $("#permTable").innerHTML = `<div class="table-wrap"><table><thead><tr><th>Menu</th>${roles.map(r=>`<th class="r">${r}</th>`).join("")}</tr></thead><tbody>`+
       menus.map(([k,label])=>`<tr><td>${label}</td>${roles.map(r=>`<td class="r">${(ACCESS[r]||[]).includes(k)?'<span class="pill good">✔</span>':'<span class="pill neutral">—</span>'}</td>`).join("")}</tr>`).join("")+
       `</tbody></table></div>`;
@@ -2344,7 +2345,7 @@
       bodyHTML:`
         <div class="field"><label>Nama Lengkap</label><input class="input" id="uName" value="${u.name}"></div>
         <div class="field"><label>Username</label><input class="input" id="uUser" value="${u.username}" ${isNew?"":"disabled"} placeholder="mis. rina"></div>
-        <div class="field"><label>Role / Hak Akses</label><select class="input" id="uRole">${["Admin","Supervisor","Kasir"].map(r=>`<option ${r===u.role?"selected":""}>${r}</option>`).join("")}</select></div>
+        <div class="field"><label>Role / Hak Akses</label><select class="input" id="uRole">${["Admin","Owner","Supervisor","Kasir"].map(r=>`<option ${r===u.role?"selected":""}>${r}</option>`).join("")}</select></div>
         <div class="field"><label>PIN ${isNew?"(4–6 digit)":"(kosongkan bila tak diubah)"}</label><input class="input mono" id="uPin" inputmode="numeric" autocomplete="off" placeholder="${isNew?"1234":"••••"}"></div>
         <div class="toggle"><button class="switch ${u.active?"on":""}" id="uActive"></button><span>Akun aktif</span></div>`,
       onOk:()=>{
