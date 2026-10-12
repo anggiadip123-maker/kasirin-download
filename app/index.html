@@ -507,6 +507,10 @@
         <svg viewBox="0 0 24 24"><path d="M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1z"/><rect x="5" y="5" width="14" height="16" rx="2"/><path d="M9 12l2 2 4-4"/></svg>
         Stok Opname
       </button>
+      <button data-view="poster">
+        <svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+        Poster Promo
+      </button>
       <button data-view="laporan">
         <svg viewBox="0 0 24 24"><path d="M4 20h16"/><rect x="5" y="12" width="3" height="6"/><rect x="10.5" y="8" width="3" height="10"/><rect x="16" y="4" width="3" height="14"/></svg>
         Laporan
@@ -668,6 +672,31 @@
       <div style="margin-top:20px">
         <div class="section-title">Riwayat Opname</div>
         <div id="opnameHist"></div>
+      </div>
+    </section>
+
+    <!-- ============ POSTER PROMO ============ -->
+    <section class="view" id="view-poster" hidden>
+      <div class="card card-p" style="margin-bottom:16px">
+        <div class="section-title">Pilih Template</div>
+        <div class="row-flex" id="posterTemplates" style="flex-wrap:wrap;gap:10px"></div>
+      </div>
+      <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+        <div class="card card-p">
+          <div class="section-title">Isi Poster</div>
+          <div class="field"><label>Judul Besar</label><input class="input" id="posJudul" maxlength="40" placeholder="mis. PROMO AKHIR PEKAN"></div>
+          <div class="field"><label>Sub Judul</label><input class="input" id="posSub" maxlength="60" placeholder="mis. Diskon 20% semua menu"></div>
+          <div class="field"><label>Teks Kecil / Syarat</label><input class="input" id="posFoot" maxlength="70" placeholder="mis. Berlaku Sabtu-Minggu, dine-in only"></div>
+          <div class="toggle" style="margin-top:4px"><button class="switch on" id="posUseLogo" type="button"></button><span>Tampilkan logo toko (kalau ada)</span></div>
+          <div class="row-flex" style="margin-top:14px">
+            <button class="btn primary block" id="posDownloadBtn" type="button">📤 Unduh / Bagikan Poster</button>
+          </div>
+        </div>
+        <div class="card card-p" style="display:flex;justify-content:center">
+          <div id="posterPreviewWrap" style="width:100%;max-width:320px">
+            <div id="posterPreview" style="width:100%;aspect-ratio:4/5;border-radius:14px;overflow:hidden;position:relative;box-shadow:0 6px 24px rgba(0,0,0,.18)"></div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -1035,10 +1064,10 @@
     ];
   }
   const ACCESS = {
-    Admin:["dashboard","kasir","kas","produk","opname","laporan","akuntansi","setting"],
+    Admin:["dashboard","kasir","kas","produk","opname","poster","laporan","akuntansi","setting"],
     Owner:["dashboard","kas","laporan","akuntansi"],
-    Supervisor:["dashboard","kasir","kas","produk","opname","laporan"],
-    Kasir:["dashboard","kasir","kas"],
+    Supervisor:["dashboard","kasir","kas","produk","opname","poster","laporan"],
+    Kasir:["dashboard","kasir","kas","poster"],
   };
 
   /* ---------------- Seed data ---------------- */
@@ -1145,7 +1174,7 @@
   }
 
   /* ---------------- Router ---------------- */
-  const TITLES={dashboard:"Dashboard",kasir:"Kasir / POS",kas:"Cash Management",produk:"Produk & Stok",opname:"Stok Opname",laporan:"Laporan",akuntansi:"Akuntansi & Pembukuan",setting:"User & Setting"};
+  const TITLES={dashboard:"Dashboard",kasir:"Kasir / POS",kas:"Cash Management",produk:"Produk & Stok",opname:"Stok Opname",poster:"Poster Promo",laporan:"Laporan",akuntansi:"Akuntansi & Pembukuan",setting:"User & Setting"};
   function go(view){
     if(!currentUser()){ showLogin(); return; }
     if(!can(view)) view = (ACCESS[currentUser().role]||["dashboard"])[0];
@@ -2353,7 +2382,7 @@
     const hb=$("#helpWaBtn"); if(hb) hb.href="https://wa.me/"+UPGRADE_WA_NUMBER+"?text="+encodeURIComponent("Halo kak, saya butuh bantuan KASIRIN.\n\nNama Toko: "+(S.settings.store||"-")+"\nMasalah: ");
   }
   function renderPermTable(){
-    const menus=[["dashboard","Dashboard"],["kasir","Kasir / POS"],["kas","Cash Management"],["produk","Produk & Stok"],["opname","Stok Opname"],["laporan","Laporan"],["akuntansi","Akuntansi"],["setting","User & Setting"]];
+    const menus=[["dashboard","Dashboard"],["kasir","Kasir / POS"],["kas","Cash Management"],["produk","Produk & Stok"],["opname","Stok Opname"],["poster","Poster Promo"],["laporan","Laporan"],["akuntansi","Akuntansi"],["setting","User & Setting"]];
     const roles=["Admin","Owner","Supervisor","Kasir"];
     $("#permTable").innerHTML = `<div class="table-wrap"><table><thead><tr><th>Menu</th>${roles.map(r=>`<th class="r">${r}</th>`).join("")}</tr></thead><tbody>`+
       menus.map(([k,label])=>`<tr><td>${label}</td>${roles.map(r=>`<td class="r">${(ACCESS[r]||[]).includes(k)?'<span class="pill good">✔</span>':'<span class="pill neutral">—</span>'}</td>`).join("")}</tr>`).join("")+
@@ -3522,7 +3551,70 @@
   });
   $("#modalBody").addEventListener("click",e=>{ const sw=e.target.closest(".switch"); if(sw && !sw.dataset.tax) sw.classList.toggle("on"); });
 
-  const renderers={dashboard:renderDashboard,kasir:renderKasir,kas:renderKas,produk:renderProdTable,opname:renderOpname,laporan:renderLaporan,akuntansi:renderAkuntansi,setting:renderSetting};
+  /* ================= Poster Promo ================= */
+  const POSTER_TEMPLATES = [
+    {id:"diskon", nama:"Promo Diskon", bg:"linear-gradient(160deg,#F97316,#DC2626)", fg:"#fff", accent:"#FEF3C7"},
+    {id:"buka", nama:"Buka Hari Ini", bg:"linear-gradient(160deg,#059669,#0F766E)", fg:"#fff", accent:"#D1FAE5"},
+    {id:"menu", nama:"Menu Baru", bg:"linear-gradient(160deg,#1E293B,#0F2C56)", fg:"#fff", accent:"#FFD166"},
+    {id:"polos", nama:"Minimalis", bg:"#ffffff", fg:"#101828", accent:"#0F2C56"},
+  ];
+  let posterTpl = "diskon";
+  function renderPosterTemplates(){
+    const el=$("#posterTemplates"); if(!el) return;
+    el.innerHTML = POSTER_TEMPLATES.map(t=>`<button type="button" class="btn sm ${posterTpl===t.id?'primary':''}" data-poster-tpl="${t.id}">${t.nama}</button>`).join("");
+  }
+  function renderPosterPreview(){
+    const prev=$("#posterPreview"); if(!prev) return;
+    const t = POSTER_TEMPLATES.find(x=>x.id===posterTpl) || POSTER_TEMPLATES[0];
+    const judul = ($("#posJudul").value||"JUDUL PROMO").toUpperCase();
+    const sub = $("#posSub").value||"";
+    const foot = $("#posFoot").value||"";
+    const useLogo = $("#posUseLogo").classList.contains("on");
+    const logo = (useLogo && S.settings.logo) ? `<img src="${S.settings.logo}" style="width:56px;height:56px;object-fit:contain;background:#fff;border-radius:12px;padding:6px;margin-bottom:14px" alt="">` : "";
+    prev.innerHTML = `
+      <div style="position:absolute;inset:0;background:${t.bg};display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px;box-sizing:border-box;font-family:'Instrument Sans',sans-serif">
+        ${logo}
+        <div style="font-size:15px;letter-spacing:2px;font-weight:700;color:${t.accent};margin-bottom:10px">${esc((S.settings.store||"TOKO SAYA").toUpperCase())}</div>
+        <div style="font-size:30px;font-weight:800;color:${t.fg};line-height:1.15;margin-bottom:10px">${esc(judul)}</div>
+        ${sub?`<div style="font-size:16px;color:${t.fg};opacity:.92;margin-bottom:14px">${esc(sub)}</div>`:""}
+        ${foot?`<div style="font-size:11px;color:${t.fg};opacity:.7;position:absolute;bottom:18px;left:18px;right:18px">${esc(foot)}</div>`:""}
+      </div>`;
+  }
+  function renderPoster(){ renderPosterTemplates(); renderPosterPreview(); }
+  async function downloadPosterImage(){
+    const el=$("#posterPreview");
+    if(typeof html2canvas!=="function"){ toast("Fitur ini butuh koneksi internet (sekali saja)","bad"); return; }
+    let canvas;
+    try{ canvas = await html2canvas(el, {backgroundColor:"#ffffff", scale:2}); }
+    catch(e){ toast("Gagal membuat gambar poster","bad"); return; }
+    canvas.toBlob(async blob=>{
+      if(!blob){ toast("Gagal membuat gambar poster","bad"); return; }
+      const name = "poster-"+(S.settings.store||"toko").replace(/[^a-z0-9]+/gi,"-")+"-"+todayStr()+".png";
+      const file = new File([blob], name, {type:"image/png"});
+      const native=!!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        try{ await navigator.share({files:[file], title:"Poster Promo"}); return; }
+        catch(e){ if(e && e.name==="AbortError") return; }
+      }
+      if(native && saveFilePlugin){
+        try{ await saveFileNative(blob, name, "image/png"); toast("Poster disimpan — cek folder Download","good"); }
+        catch(e){ toast("Gagal menyimpan poster: "+(e&&e.message||"coba lagi"),"bad"); }
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      modal({title:"Poster Promo", okText:"Tutup", onOk:()=>{},
+        bodyHTML:`<p class="acc-note" style="margin:0 0 10px">Tekan &amp; tahan gambar untuk simpan/bagikan</p><img src="${url}" alt="Poster" style="width:100%;border-radius:8px;border:1px solid var(--line-strong)">`});
+    }, "image/png");
+  }
+  $("#posterTemplates").addEventListener("click",e=>{
+    const b=e.target.closest("[data-poster-tpl]"); if(!b) return;
+    posterTpl=b.dataset.posterTpl; renderPoster();
+  });
+  ["posJudul","posSub","posFoot"].forEach(id=>{ const el=$("#"+id); if(el) el.addEventListener("input",renderPosterPreview); });
+  $("#posUseLogo").addEventListener("click",()=>{ $("#posUseLogo").classList.toggle("on"); renderPosterPreview(); });
+  $("#posDownloadBtn").addEventListener("click",downloadPosterImage);
+
+  const renderers={dashboard:renderDashboard,kasir:renderKasir,kas:renderKas,produk:renderProdTable,opname:renderOpname,poster:renderPoster,laporan:renderLaporan,akuntansi:renderAkuntansi,setting:renderSetting};
 
   /* ================= Init ================= */
   load(); applyTheme(); applyChrome();
