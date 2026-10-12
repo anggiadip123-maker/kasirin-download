@@ -1698,6 +1698,19 @@
     return new Promise(resolve=>{
       canvas.toBlob(async blob=>{
         if(!blob){ toast("Gagal membuat gambar","bad"); resolve(false); return; }
+        // Di APK: pakai Intent Android asli lewat plugin native (shareToWhatsApp) -- ini jalur
+        // paling reliable, langsung ke WhatsApp tanpa lewat menu Bagikan segala. JANGAN pakai
+        // navigator.share di sini: di sebagian Android System WebView itu tidak mendukung
+        // lampiran file sama sekali (dianggap tidak tersedia / silently gagal).
+        if(saveFilePlugin && saveFilePlugin.shareToWhatsApp){
+          try{
+            const data = await blobToBase64(blob);
+            const r = await saveFilePlugin.shareToWhatsApp({data, filename, mimeType:"image/png"});
+            if(r && r.whatsappFound===false) toast("WhatsApp tidak ditemukan di HP ini — pilih dari menu Bagikan yang terbuka","good");
+            resolve(true); return;
+          }catch(e){ toast("Gagal membuka WhatsApp: "+(e&&e.message||"coba lagi"),"bad"); resolve(false); return; }
+        }
+        // Browser biasa (bukan APK): pakai Web Share API kalau didukung.
         const file=new File([blob], filename, {type:"image/png"});
         if(navigator.canShare && navigator.canShare({files:[file]})){
           try{ await navigator.share({files:[file], title}); resolve(true); return; }
