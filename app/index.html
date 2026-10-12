@@ -17,6 +17,9 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <style>
   /* ================= Tokens — light (default / unstamped) ================= */
   :root{
@@ -515,6 +518,10 @@
         <svg viewBox="0 0 24 24"><path d="M4 20h16"/><rect x="5" y="12" width="3" height="6"/><rect x="10.5" y="8" width="3" height="10"/><rect x="16" y="4" width="3" height="14"/></svg>
         Laporan
       </button>
+      <button data-view="matabos">
+        <svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        Mata Bos
+      </button>
       <button data-view="akuntansi">
         <svg viewBox="0 0 24 24"><path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2V4z"/><path d="M9 4v16"/><path d="M12 8.5h3.5M12 12h3.5"/></svg>
         Akuntansi
@@ -732,6 +739,31 @@
       <div id="repBody"></div>
     </section>
 
+    <!-- ============ MATA BOS ============ -->
+    <section class="view" id="view-matabos" hidden>
+      <div id="mataBosOffCard" class="card card-p" hidden>
+        <div class="section-title">Mata Bos belum aktif</div>
+        <p style="color:var(--muted);margin-top:0">Mata Bos memantau transaksi toko ini secara real-time dari HP lain (misalnya HP kamu di rumah, sementara kasir pakai HP di toko). Aktifkan dulu di <b>User &amp; Setting</b>.</p>
+        <div class="row-flex"><button class="btn primary sm" id="mataBosGotoSetting" type="button">Buka Setting</button></div>
+      </div>
+      <div id="mataBosOnWrap" hidden>
+        <div class="kpi-grid" style="margin-bottom:18px;grid-template-columns:repeat(2,1fr)">
+          <div class="kpi">
+            <div class="k-label">Omzet Hari Ini</div>
+            <div class="k-value mono" id="mataBosOmzet">Rp0</div>
+          </div>
+          <div class="kpi">
+            <div class="k-label">Jumlah Transaksi</div>
+            <div class="k-value mono" id="mataBosCount">0</div>
+          </div>
+        </div>
+        <div class="card card-p">
+          <div class="acc-bar"><div class="section-title" style="margin:0">Transaksi Real-time</div><div class="spacer"></div><span class="pill neutral" id="mataBosStatus">Menghubungkan…</span></div>
+          <div class="mini-list" id="mataBosFeed"><div class="empty">Belum ada transaksi</div></div>
+        </div>
+      </div>
+    </section>
+
     <!-- ============ AKUNTANSI ============ -->
     <section class="view" id="view-akuntansi" hidden>
       <div class="tabs" id="accTabs">
@@ -887,6 +919,11 @@
           <p style="color:var(--muted);font-size:11.5px;margin:6px 0 0"><strong>Penting:</strong> kalau aktif, seluruh data toko (produk, transaksi, laporan keuangan) otomatis dikirim &amp; tersimpan di Google Drive milik penjual/pengembang KASIRIN setiap hari — bukan Drive milikmu sendiri. Ini dipakai sebagai cadangan darurat kalau kamu lupa backup manual dan HP hilang/rusak. Matikan kalau tidak ingin data toko tersimpan di luar HP ini.</p>
           <div class="row-flex" style="margin-top:10px"><button class="btn sm" id="cloudRestoreBtn" type="button">☁️ Pulihkan dari Cloud</button></div>
           <p id="lastCloudBackupInfo" style="color:var(--muted);font-size:12px;margin:8px 0 0"></p>
+        </div>
+        <div class="card card-p admin-only">
+          <div class="section-title">Mata Bos</div>
+          <p style="color:var(--muted);margin-top:0">Pantau transaksi toko ini secara real-time dari HP lain (Owner/Admin), misalnya kamu di rumah sementara kasir jalan di toko. Butuh internet. Data yang dikirim hanya ringkasan transaksi (waktu, total, metode bayar, kasir, jumlah item) — bukan detail produk atau pembukuan lengkap.</p>
+          <div class="toggle" style="margin-top:8px"><button class="switch" id="mataBosSwitch" type="button"></button><span>Aktifkan Mata Bos</span></div>
         </div>
         <div class="card card-p admin-only" style="grid-column:1/-1">
           <div class="acc-bar"><div class="section-title" style="margin:0">Log Aktivitas</div><div class="spacer"></div><button class="btn sm" id="auditCsv">Export CSV</button></div>
@@ -1075,8 +1112,8 @@
     ];
   }
   const ACCESS = {
-    Admin:["dashboard","kasir","kas","produk","opname","poster","laporan","akuntansi","setting"],
-    Owner:["dashboard","kas","laporan","akuntansi"],
+    Admin:["dashboard","kasir","kas","produk","opname","poster","laporan","akuntansi","matabos","setting"],
+    Owner:["dashboard","kas","laporan","akuntansi","matabos"],
     Supervisor:["dashboard","kasir","kas","produk","opname","poster","laporan"],
     Kasir:["dashboard","kasir","kas","poster"],
   };
@@ -1141,6 +1178,7 @@
     if(S.activeTable===undefined) S.activeTable=null;
     if(S.setupDone===undefined) S.setupDone=true;
     if(!S.trialStart) S.trialStart=todayStr();
+    if(S.settings.mataBosEnabled==null) S.settings.mataBosEnabled=false;
   }
   function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 
@@ -1185,10 +1223,11 @@
   }
 
   /* ---------------- Router ---------------- */
-  const TITLES={dashboard:"Dashboard",kasir:"Kasir / POS",kas:"Cash Management",produk:"Produk & Stok",opname:"Stok Opname",poster:"Poster Promo",laporan:"Laporan",akuntansi:"Akuntansi & Pembukuan",setting:"User & Setting"};
+  const TITLES={dashboard:"Dashboard",kasir:"Kasir / POS",kas:"Cash Management",produk:"Produk & Stok",opname:"Stok Opname",poster:"Poster Promo",laporan:"Laporan",akuntansi:"Akuntansi & Pembukuan",matabos:"Mata Bos",setting:"User & Setting"};
   function go(view){
     if(!currentUser()){ showLogin(); return; }
     if(!can(view)) view = (ACCESS[currentUser().role]||["dashboard"])[0];
+    if(view!=="matabos" && typeof detachMataBos==="function") detachMataBos();
     $$(".view").forEach(v=>v.hidden = v.id!=="view-"+view);
     $$("#nav button").forEach(b=>b.classList.toggle("active", b.dataset.view===view));
     $("#pageTitle").textContent = TITLES[view];
@@ -1494,6 +1533,7 @@
     S.cart.forEach(i=>{ const p=S.products.find(x=>x.id===i.id); if(p) p.stock=Math.max(0,p.stock-i.qty); });
     if(S.activeTable){ delete S.tableCarts[S.activeTable]; S.activeTable=null; }
     S.cart=[]; S.cartDiscount=0; save();
+    if(S.settings.mataBosEnabled && trx.type!=="RETUR") pushMataBosTransaksi(trx);
     renderCart(); renderProducts(); renderTableBar();
     const cel=$(".cart"); if(cel) cel.classList.remove("expanded");
     return trx;
@@ -2385,6 +2425,7 @@
     $("#setTableCount").value = s.tableCount==null?8:s.tableCount;
     $("#themeSwitch").classList.toggle("on", curTheme()==="dark");
     $("#cloudBackupSwitch").classList.toggle("on", s.cloudBackupEnabled!==false);
+    $("#mataBosSwitch").classList.toggle("on", !!s.mataBosEnabled);
     applyAccess();
     renderUsers();
     renderAudit();
@@ -2396,7 +2437,7 @@
     const hb=$("#helpWaBtn"); if(hb) hb.href="https://wa.me/"+UPGRADE_WA_NUMBER+"?text="+encodeURIComponent("Halo kak, saya butuh bantuan KASIRIN.\n\nNama Toko: "+(S.settings.store||"-")+"\nMasalah: ");
   }
   function renderPermTable(){
-    const menus=[["dashboard","Dashboard"],["kasir","Kasir / POS"],["kas","Cash Management"],["produk","Produk & Stok"],["opname","Stok Opname"],["poster","Poster Promo"],["laporan","Laporan"],["akuntansi","Akuntansi"],["setting","User & Setting"]];
+    const menus=[["dashboard","Dashboard"],["kasir","Kasir / POS"],["kas","Cash Management"],["produk","Produk & Stok"],["opname","Stok Opname"],["poster","Poster Promo"],["laporan","Laporan"],["akuntansi","Akuntansi"],["matabos","Mata Bos"],["setting","User & Setting"]];
     const roles=["Admin","Owner","Supervisor","Kasir"];
     $("#permTable").innerHTML = `<div class="table-wrap"><table><thead><tr><th>Menu</th>${roles.map(r=>`<th class="r">${r}</th>`).join("")}</tr></thead><tbody>`+
       menus.map(([k,label])=>`<tr><td>${label}</td>${roles.map(r=>`<td class="r">${(ACCESS[r]||[]).includes(k)?'<span class="pill good">✔</span>':'<span class="pill neutral">—</span>'}</td>`).join("")}</tr>`).join("")+
@@ -2721,6 +2762,13 @@
     toast(on?"Backup otomatis ke cloud diaktifkan":"Backup otomatis ke cloud dimatikan","good");
   });
   $("#cloudRestoreBtn").addEventListener("click",()=>cloudRestore());
+  $("#mataBosSwitch").addEventListener("click",()=>{
+    const on=$("#mataBosSwitch").classList.toggle("on");
+    if(on && !getStoreLicenseKey()){ $("#mataBosSwitch").classList.remove("on"); toast("Isi Nama Toko dulu di Profil Toko","bad"); return; }
+    S.settings.mataBosEnabled=on; save();
+    toast(on?"Mata Bos diaktifkan":"Mata Bos dimatikan","good");
+    if(on) initMataBos(); else detachMataBos();
+  });
   async function copyText(text){
     try{ await navigator.clipboard.writeText(text); return true; }
     catch(e){
@@ -3691,7 +3739,87 @@
   });
   $("#posDownloadBtn").addEventListener("click",downloadPosterImage);
 
-  const renderers={dashboard:renderDashboard,kasir:renderKasir,kas:renderKas,produk:renderProdTable,opname:renderOpname,poster:renderPoster,laporan:renderLaporan,akuntansi:renderAkuntansi,setting:renderSetting};
+  /* ================= MATA BOS (pantau transaksi lintas HP, opsional) =================
+     Fitur ini satu-satunya bagian KASIRIN yang butuh server (Firebase milik pengembang),
+     dan hanya aktif kalau pemilik toko menyalakannya sendiri di Setting. Yang dikirim
+     cuma ringkasan transaksi (waktu, total, metode, kasir, jumlah item) per toko, dikunci
+     dengan Nama Toko (storeKey) yang sama dipakai untuk lisensi PRO. Tidak mengirim detail
+     produk/pembukuan dan tidak mempengaruhi data lokal kalau gagal/offline. */
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyBjRXZkhWpl-3VVpGm63qfm8huxgDnWnic",
+    authDomain: "kasirin-ac135.firebaseapp.com",
+    projectId: "kasirin-ac135",
+    storageBucket: "kasirin-ac135.firebasestorage.app",
+    messagingSenderId: "275404503053",
+    appId: "1:275404503053:web:78d807d271aa203556bd44",
+    measurementId: "G-7HBEPPY3W7"
+  };
+  let mataBosApp=null, mataBosDb=null, mataBosAuthP=null, mataBosUnsubs=[];
+  function mataBosAvailable(){ return typeof firebase!=="undefined" && !!firebase.initializeApp; }
+  async function initMataBos(){
+    if(!S.settings.mataBosEnabled) return null;
+    if(!mataBosAvailable()) return null;
+    if(mataBosDb) return mataBosDb;
+    try{
+      if(!mataBosApp) mataBosApp = (firebase.apps && firebase.apps.length) ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
+      mataBosDb = firebase.firestore();
+      if(!mataBosAuthP) mataBosAuthP = firebase.auth().signInAnonymously();
+      await mataBosAuthP;
+      return mataBosDb;
+    }catch(e){ mataBosDb=null; return null; }
+  }
+  function detachMataBos(){ mataBosUnsubs.forEach(u=>{ try{ u(); }catch(e){} }); mataBosUnsubs=[]; }
+  async function pushMataBosTransaksi(t){
+    try{
+      if(!S.settings.mataBosEnabled) return;
+      const storeKey=getStoreLicenseKey(); if(!storeKey) return;
+      const db = await initMataBos(); if(!db) return;
+      const ref = db.collection("toko").doc(storeKey);
+      const today = todayStr();
+      await db.runTransaction(async tx=>{
+        const snap = await tx.get(ref);
+        const data = snap.exists ? (snap.data()||{}) : {};
+        const sameDay = data.omzetTanggal===today;
+        const omzet = (sameDay?(data.omzetHariIni||0):0) + (t.total||0);
+        const count = (sameDay?(data.omzetCount||0):0) + 1;
+        tx.set(ref, { nama:S.settings.store||storeKey, omzetHariIni:omzet, omzetCount:count, omzetTanggal:today, updatedAt:new Date().toISOString() }, {merge:true});
+      });
+      await ref.collection("transaksi").add({
+        time:t.time, total:t.total||0, method:methodLabel(t), cashier:t.cashier||"", itemCount:(t.items||[]).reduce((a,i)=>a+(i.qty||0),0)
+      });
+    }catch(e){ /* diam-diam, tidak mengganggu transaksi kasir */ }
+  }
+  function renderMataBos(){
+    const on = !!S.settings.mataBosEnabled;
+    $("#mataBosOffCard").hidden = on;
+    $("#mataBosOnWrap").hidden = !on;
+    if(!on) return;
+    const storeKey=getStoreLicenseKey();
+    if(!storeKey){ $("#mataBosStatus").innerHTML='<span class="pill bad">Isi Nama Toko dulu</span>'; return; }
+    $("#mataBosStatus").textContent="Menghubungkan…";
+    initMataBos().then(db=>{
+      if(!db){ $("#mataBosStatus").innerHTML='<span class="pill bad">Gagal terhubung</span>'; return; }
+      detachMataBos();
+      const ref = db.collection("toko").doc(storeKey);
+      mataBosUnsubs.push(ref.onSnapshot(snap=>{
+        const d = snap.exists ? (snap.data()||{}) : {};
+        const sameDay = d.omzetTanggal===todayStr();
+        $("#mataBosOmzet").textContent = rp(sameDay?(d.omzetHariIni||0):0);
+        $("#mataBosCount").textContent = String(sameDay?(d.omzetCount||0):0);
+        $("#mataBosStatus").innerHTML = '<span class="pill good">Terhubung</span>';
+      }, ()=>{ $("#mataBosStatus").innerHTML='<span class="pill bad">Gagal terhubung</span>'; }));
+      mataBosUnsubs.push(ref.collection("transaksi").orderBy("time","desc").limit(20).onSnapshot(snap=>{
+        const rows=[]; snap.forEach(doc=>rows.push(doc.data()));
+        $("#mataBosFeed").innerHTML = rows.length ? rows.map(t=>{
+          const dt=new Date(t.time||Date.now());
+          return `<div class="mini-row"><span>${dt.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})} · <span class="pill neutral">${esc(t.method||"")}</span> · ${esc(t.cashier||"-")}</span><span class="mono">${rp(t.total||0)}</span></div>`;
+        }).join("") : `<div class="empty">Belum ada transaksi</div>`;
+      }));
+    });
+  }
+  $("#mataBosGotoSetting").addEventListener("click",()=>go("setting"));
+
+  const renderers={dashboard:renderDashboard,kasir:renderKasir,kas:renderKas,produk:renderProdTable,opname:renderOpname,poster:renderPoster,laporan:renderLaporan,akuntansi:renderAkuntansi,matabos:renderMataBos,setting:renderSetting};
 
   /* ================= Init ================= */
   load(); applyTheme(); applyChrome();
