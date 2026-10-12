@@ -784,7 +784,13 @@
             </div>
           </div>
           <p style="color:var(--muted);font-size:12px;margin:8px 0 0">Versi Gratis bisa dipakai <strong id="freeLimitTxt"></strong> &amp; ada tulisan promosi kecil di struk. Upgrade PRO Rp99rb Lifetime untuk transaksi tanpa batas + struk bersih tanpa watermark.</p>
-          <div style="margin-top:12px"><button class="btn primary block" id="payFlowBtn" type="button">Bayar &amp; aktifkan PRO (DANA / QRIS)</button></div>
+          <div id="playBillingWrap" style="display:none;margin-top:12px">
+            <button class="btn primary block" id="payPlayBtn" type="button">🛒 Upgrade PRO lewat Google Play</button>
+            <button class="btn block" id="restorePlayBtn" type="button" style="margin-top:8px">Sudah pernah beli? Pulihkan Pembelian</button>
+          </div>
+          <div id="manualPayWrap" style="margin-top:12px">
+            <div style="margin-top:12px"><button class="btn primary block" id="payFlowBtn" type="button">Bayar &amp; aktifkan PRO (DANA / QRIS)</button></div>
+          </div>
           <div class="field" style="margin-top:10px"><label>Atau lewat WhatsApp (salin &amp; kirim ke penjual)</label>
             <textarea class="input mono" id="upgradeMsg" readonly rows="5" style="resize:vertical"></textarea>
             <div class="row-flex" style="margin-top:6px">
@@ -1495,6 +1501,41 @@
   }
   const nativePrintPlugin = (window.Capacitor && window.Capacitor.registerPlugin) ? window.Capacitor.registerPlugin("NativePrint") : null;
   const saveFilePlugin = (window.Capacitor && window.Capacitor.registerPlugin) ? window.Capacitor.registerPlugin("SaveFile") : null;
+  const billingPlugin = (window.Capacitor && window.Capacitor.registerPlugin) ? window.Capacitor.registerPlugin("KasirinBilling") : null;
+  // Diinstal dari Play Store wajib pakai Google Play Billing (kebijakan Google), selain itu
+  // (APK langsung/website) tetap pakai alur DANA/WhatsApp manual yang sudah ada.
+  let isPlayInstallCache = null;
+  async function isPlayInstall(){
+    if(isPlayInstallCache!==null) return isPlayInstallCache;
+    if(!billingPlugin){ isPlayInstallCache=false; return false; }
+    try{ const r=await billingPlugin.isPlayInstall(); isPlayInstallCache=!!r.isPlay; }
+    catch(e){ isPlayInstallCache=false; }
+    return isPlayInstallCache;
+  }
+  async function purchaseProViaPlay(){
+    try{
+      await billingPlugin.purchasePro();
+      const storeKey=getStoreLicenseKey();
+      if(!storeKey){ toast("Isi Nama Toko dulu di Profil Toko","bad"); return; }
+      localStorage.setItem("kasirin_license", generateLicense(storeKey));
+      audit("Aktivasi lisensi PRO","lewat Google Play Billing");
+      toast("KASIRIN PRO aktif! Terima kasih","good");
+      renderLicense(); renderLimitNag();
+      const c=$("#modalCancel")||$("#modalOk"); if(c) c.click();
+    }catch(e){ toast("Pembelian gagal/dibatalkan: "+(e&&e.message||""),"bad"); }
+  }
+  async function restoreProViaPlay(){
+    try{
+      const r=await billingPlugin.restorePurchases();
+      if(!r.purchased){ toast("Tidak ditemukan pembelian PRO sebelumnya di akun Google Play ini","bad"); return; }
+      const storeKey=getStoreLicenseKey();
+      if(!storeKey){ toast("Isi Nama Toko dulu di Profil Toko","bad"); return; }
+      localStorage.setItem("kasirin_license", generateLicense(storeKey));
+      audit("Aktivasi lisensi PRO","dipulihkan dari Google Play");
+      toast("PRO dipulihkan! Terima kasih","good");
+      renderLicense(); renderLimitNag();
+    }catch(e){ toast("Gagal memulihkan pembelian","bad"); }
+  }
   function blobToBase64(blob){
     return new Promise((resolve,reject)=>{
       const reader=new FileReader();
@@ -2661,6 +2702,13 @@
       badge.innerHTML='<span class="pill neutral">Versi Gratis</span>';
       wrap.style.display="";
     }
+    const native=!!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    if(native && billingPlugin){
+      isPlayInstall().then(play=>{
+        $("#playBillingWrap").style.display = play ? "" : "none";
+        $("#manualPayWrap").style.display = play ? "none" : "";
+      });
+    }
     const waMsg = upgradeWaMsg();
     msgEl.value = waMsg;
     const waBtn=$("#waUpgradeBtn");
@@ -2689,16 +2737,26 @@
     el.innerHTML=`<div class="nag"><div class="nag-txt">${txt}</div>${can("setting")?'<button class="btn sm primary" id="limitNagBtn" type="button">Lihat PRO</button>':""}</div>`;
     const b=$("#limitNagBtn"); if(b) b.addEventListener("click",goLicense);
   }
-  function showLimitDialog(){
+  async function showLimitDialog(){
+    const native=!!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    const play = (native && billingPlugin) ? await isPlayInstall() : false;
     const url="https://wa.me/"+UPGRADE_WA_NUMBER+"?text="+encodeURIComponent(upgradeWaMsg());
+    const payButtons = play
+      ? `<button class="btn primary block" id="limitPlayBtn" type="button" style="margin-bottom:8px">🛒 Upgrade PRO lewat Google Play</button>
+         <button class="btn block" id="limitPlayRestoreBtn" type="button">Sudah pernah beli? Pulihkan Pembelian</button>`
+      : `<button class="btn primary block" id="limitPayBtn" type="button" style="margin-bottom:8px">Bayar &amp; aktifkan PRO (DANA / QRIS)</button>
+         <a class="btn block" style="text-decoration:none" id="limitWaBtn" href="${url}" target="_blank" rel="noopener">Atau lewat WhatsApp</a>`;
     modal({title:"Masa coba gratis habis", okText:"Saya sudah punya kode",
       bodyHTML:`<p style="margin:0 0 12px;font-size:13.5px;line-height:1.6">Masa coba gratis ${FREE_TRIAL_DAYS} hari sudah habis. Data dan laporan tetap aman dan bisa dibuka. Upgrade PRO untuk lanjut mencatat penjualan.</p>
         <div style="display:flex;justify-content:space-between;padding:10px 12px;margin-bottom:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);font-size:13.5px"><span>PRO, sekali bayar</span><strong>Rp99.000</strong></div>
-        <button class="btn primary block" id="limitPayBtn" type="button" style="margin-bottom:8px">Bayar &amp; aktifkan PRO (DANA / QRIS)</button>
-        <a class="btn block" style="text-decoration:none" id="limitWaBtn" href="${url}" target="_blank" rel="noopener">Atau lewat WhatsApp</a>`,
+        ${payButtons}`,
       onOk:()=>{ goLicense(); }});
-    setTimeout(()=>{ const b=$("#limitWaBtn"); if(b) b.addEventListener("click",logUpgradeLead);
-      const p=$("#limitPayBtn"); if(p) p.addEventListener("click",()=>{ const c=$("#modalCancel"); if(c) c.click(); setTimeout(showPayDialog,120); }); },30);
+    setTimeout(()=>{
+      const b=$("#limitWaBtn"); if(b) b.addEventListener("click",logUpgradeLead);
+      const p=$("#limitPayBtn"); if(p) p.addEventListener("click",()=>{ const c=$("#modalCancel"); if(c) c.click(); setTimeout(showPayDialog,120); });
+      const pp=$("#limitPlayBtn"); if(pp) pp.addEventListener("click",purchaseProViaPlay);
+      const pr=$("#limitPlayRestoreBtn"); if(pr) pr.addEventListener("click",restoreProViaPlay);
+    },30);
   }
   const PAY_DANA_NUMBER="0897-7031-194", PAY_BASE=99000;
   function payNominal(){
@@ -2757,6 +2815,8 @@
     },30);
   }
   $("#payFlowBtn").addEventListener("click",showPayDialog);
+  $("#payPlayBtn").addEventListener("click",purchaseProViaPlay);
+  $("#restorePlayBtn").addEventListener("click",restoreProViaPlay);
   $("#waUpgradeBtn").addEventListener("click",logUpgradeLead);
   $("#copyDeviceId").addEventListener("click",async()=>{
     const ok=await copyText($("#deviceIdShow").value);
