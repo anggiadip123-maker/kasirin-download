@@ -856,7 +856,7 @@
               <button class="btn primary sm" id="activateLicenseBtn">Aktifkan</button>
             </div>
           </div>
-          <p style="color:var(--muted);font-size:12px;margin:8px 0 0">Versi Gratis bisa dipakai <strong id="freeLimitTxt"></strong> &amp; ada tulisan promosi kecil di struk. Upgrade PRO Rp45rb Lifetime untuk transaksi tanpa batas + struk bersih tanpa watermark.</p>
+          <p style="color:var(--muted);font-size:12px;margin:8px 0 0">Versi Gratis bisa dipakai <strong id="freeLimitTxt"></strong> &amp; ada tulisan promosi kecil di struk. Upgrade PRO Rp75rb Lifetime untuk transaksi tanpa batas + struk bersih tanpa watermark.</p>
           <div id="playBillingWrap" style="display:none;margin-top:12px">
             <button class="btn primary block" id="payPlayBtn" type="button">🛒 Upgrade PRO lewat Google Play</button>
             <button class="btn block" id="restorePlayBtn" type="button" style="margin-top:8px">Sudah pernah beli? Pulihkan Pembelian</button>
@@ -892,7 +892,7 @@
           <details><summary>Ganti HP atau pindah data</summary>
             <p>Di HP lama tekan <b>Backup Data</b> dan kirim filenya ke diri sendiri. Di HP baru pasang KASIRIN, lalu <b>Restore Data</b> di kartu Data. Data tersimpan di HP, jadi backup rutin itu penting.</p></details>
           <details><summary>Batas versi Gratis dan upgrade PRO</summary>
-            <p>Versi Gratis bisa dipakai 30 hari. PRO (Rp45rb, sekali bayar) tanpa batas waktu/transaksi dan struk tanpa tulisan promosi. Ketuk <b>Chat WA Admin</b> di kartu Lisensi, transfer, lalu masukkan kode yang dikirim.</p></details>
+            <p>Versi Gratis bisa dipakai 30 hari. PRO (Rp75rb, sekali bayar) tanpa batas waktu/transaksi dan struk tanpa tulisan promosi. Ketuk <b>Chat WA Admin</b> di kartu Lisensi, transfer, lalu masukkan kode yang dikirim.</p></details>
           <details><summary>Scan barcode tidak jalan</summary>
             <p>Scanner USB/Bluetooth bekerja seperti keyboard: ketuk kolom pencarian di Kasir lalu scan. Untuk kamera, izinkan akses kamera bila diminta.</p></details>
           <div class="row-flex" style="margin-top:12px"><a class="btn primary sm" style="text-decoration:none" id="helpWaBtn" href="#" target="_blank" rel="noopener">Hubungi dukungan (WhatsApp)</a></div>
@@ -2874,7 +2874,7 @@
     if(waBtn) waBtn.href = `https://wa.me/${UPGRADE_WA_NUMBER}?text=${encodeURIComponent(waMsg)}`;
   }
   function upgradeWaMsg(){
-    return `Halo kak, saya mau upgrade KASIRIN PRO Rp45rb Lifetime.\n\nNama Toko: ${S.settings.store||"-"}\n\nMohon info cara pembayaran & kode aktivasinya ya.`;
+    return `Halo kak, saya mau upgrade KASIRIN PRO Rp75rb Lifetime.\n\nNama Toko: ${S.settings.store||"-"}\n\nMohon info cara pembayaran & kode aktivasinya ya.`;
   }
   function logUpgradeLead(){
     try{ fetch(UPGRADE_LOG_URL,{method:"POST",body:JSON.stringify({namaToko:S.settings.store||""})}).catch(()=>{}); }catch(e){}
@@ -2906,7 +2906,7 @@
          <a class="btn block" style="text-decoration:none" id="limitWaBtn" href="${url}" target="_blank" rel="noopener">Atau lewat WhatsApp</a>`;
     modal({title:"Masa coba gratis habis", okText:"Saya sudah punya kode",
       bodyHTML:`<p style="margin:0 0 12px;font-size:13.5px;line-height:1.6">Masa coba gratis ${FREE_TRIAL_DAYS} hari sudah habis. Data dan laporan tetap aman dan bisa dibuka. Upgrade PRO untuk lanjut mencatat penjualan.</p>
-        <div style="display:flex;justify-content:space-between;padding:10px 12px;margin-bottom:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);font-size:13.5px"><span>PRO, sekali bayar</span><strong>Rp45.000</strong></div>
+        <div style="display:flex;justify-content:space-between;padding:10px 12px;margin-bottom:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);font-size:13.5px"><span>PRO, sekali bayar</span><strong>Rp75.000</strong></div>
         ${payButtons}`,
       onOk:()=>{ goLicense(); }});
     setTimeout(()=>{
@@ -2916,7 +2916,7 @@
       const pr=$("#limitPlayRestoreBtn"); if(pr) pr.addEventListener("click",restoreProViaPlay);
     },30);
   }
-  const PAY_DANA_NUMBER="0897-7031-194", PAY_BASE=45000;
+  const PAY_DANA_NUMBER="0897-7031-194", PAY_BASE=75000;
   function payNominal(){
     const k=getStoreLicenseKey()||""; let h=0;
     for(let i=0;i<k.length;i++) h=(h*31+k.charCodeAt(i))%900;
