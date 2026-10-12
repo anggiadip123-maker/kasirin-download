@@ -687,6 +687,17 @@
           <div class="field"><label>Judul Besar</label><input class="input" id="posJudul" maxlength="40" placeholder="mis. PROMO AKHIR PEKAN"></div>
           <div class="field"><label>Sub Judul</label><input class="input" id="posSub" maxlength="60" placeholder="mis. Diskon 20% semua menu"></div>
           <div class="field"><label>Teks Kecil / Syarat</label><input class="input" id="posFoot" maxlength="70" placeholder="mis. Berlaku Sabtu-Minggu, dine-in only"></div>
+          <div class="field"><label>Gambar Makanan/Produk (opsional)</label>
+            <select class="input" id="posProdukImg" style="margin-bottom:8px"><option value="">— Pilih dari foto produk —</option></select>
+            <div class="row-flex">
+              <span class="thumb" id="posImgPrev" style="width:48px;height:48px;font-size:11px">Foto</span>
+              <input type="file" accept="image/*" id="posUploadImg" class="input" style="padding:7px">
+              <button class="btn sm ghost" id="posImgClear" type="button">Hapus</button>
+            </div>
+            <p style="color:var(--muted);font-size:11.5px;margin:6px 0 0">Pilih dari produk yang sudah ada fotonya, atau upload foto baru khusus poster ini.</p>
+            <p style="color:var(--muted);font-size:11.5px;margin:10px 0 4px">Belum ada foto asli? Buat ilustrasi otomatis (bukan foto asli, tapi lumayan buat sementara):</p>
+            <div class="row-flex" id="posterIllustPicker" style="flex-wrap:wrap;gap:6px"></div>
+          </div>
           <div class="toggle" style="margin-top:4px"><button class="switch on" id="posUseLogo" type="button"></button><span>Tampilkan logo toko (kalau ada)</span></div>
           <div class="row-flex" style="margin-top:14px">
             <button class="btn primary block" id="posDownloadBtn" type="button">📤 Unduh / Bagikan Poster</button>
@@ -3559,9 +3570,15 @@
     {id:"polos", nama:"Minimalis", bg:"#ffffff", fg:"#101828", accent:"#0F2C56"},
   ];
   let posterTpl = "diskon";
+  let posterImage = "";
   function renderPosterTemplates(){
     const el=$("#posterTemplates"); if(!el) return;
     el.innerHTML = POSTER_TEMPLATES.map(t=>`<button type="button" class="btn sm ${posterTpl===t.id?'primary':''}" data-poster-tpl="${t.id}">${t.nama}</button>`).join("");
+  }
+  function renderPosterProdukOptions(){
+    const sel=$("#posProdukImg"); if(!sel) return;
+    const withPhoto=(S.products||[]).filter(p=>p.photo);
+    sel.innerHTML = `<option value="">— Pilih dari foto produk —</option>`+withPhoto.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("");
   }
   function renderPosterPreview(){
     const prev=$("#posterPreview"); if(!prev) return;
@@ -3570,9 +3587,11 @@
     const sub = $("#posSub").value||"";
     const foot = $("#posFoot").value||"";
     const useLogo = $("#posUseLogo").classList.contains("on");
-    const logo = (useLogo && S.settings.logo) ? `<img src="${S.settings.logo}" style="width:56px;height:56px;object-fit:contain;background:#fff;border-radius:12px;padding:6px;margin-bottom:14px" alt="">` : "";
+    const logo = (useLogo && S.settings.logo) ? `<img src="${S.settings.logo}" style="width:48px;height:48px;object-fit:contain;background:#fff;border-radius:10px;padding:5px;margin-bottom:10px" alt="">` : "";
+    const photo = posterImage ? `<div style="width:140px;height:140px;border-radius:20px;overflow:hidden;border:4px solid rgba(255,255,255,.85);box-shadow:0 8px 20px rgba(0,0,0,.25);margin-bottom:16px"><img src="${posterImage}" style="width:100%;height:100%;object-fit:cover" alt=""></div>` : "";
     prev.innerHTML = `
       <div style="position:absolute;inset:0;background:${t.bg};display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px;box-sizing:border-box;font-family:'Instrument Sans',sans-serif">
+        ${photo}
         ${logo}
         <div style="font-size:15px;letter-spacing:2px;font-weight:700;color:${t.accent};margin-bottom:10px">${esc((S.settings.store||"TOKO SAYA").toUpperCase())}</div>
         <div style="font-size:30px;font-weight:800;color:${t.fg};line-height:1.15;margin-bottom:10px">${esc(judul)}</div>
@@ -3580,7 +3599,24 @@
         ${foot?`<div style="font-size:11px;color:${t.fg};opacity:.7;position:absolute;bottom:18px;left:18px;right:18px">${esc(foot)}</div>`:""}
       </div>`;
   }
-  function renderPoster(){ renderPosterTemplates(); renderPosterPreview(); }
+  const POSTER_ILLUST_EMOJI = ["🍛","🍜","🍗","🍟","🍔","🍕","🌮","🥗","☕","🥤","🧋","🍵","🍰","🍩","🍪","🍰"];
+  function makeIllustration(emoji){
+    const c1=POSTER_TEMPLATES.find(x=>x.id===posterTpl)?.accent || "#F97316";
+    const c2="#1F2937";
+    const cv=document.createElement("canvas"); cv.width=280; cv.height=280;
+    const ctx=cv.getContext("2d");
+    const g=ctx.createLinearGradient(0,0,280,280); g.addColorStop(0,c1); g.addColorStop(1,c2);
+    ctx.fillStyle=g; ctx.fillRect(0,0,280,280);
+    ctx.font='150px "Segoe UI Emoji","Noto Color Emoji",sans-serif';
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText(emoji,140,152);
+    return cv.toDataURL("image/jpeg",0.88);
+  }
+  function renderPosterIllustPicker(){
+    const el=$("#posterIllustPicker"); if(!el) return;
+    el.innerHTML = POSTER_ILLUST_EMOJI.map(em=>`<button type="button" class="btn sm" data-poster-em="${em}" style="font-size:16px;padding:6px 10px">${em}</button>`).join("");
+  }
+  function renderPoster(){ renderPosterTemplates(); renderPosterProdukOptions(); renderPosterIllustPicker(); renderPosterPreview(); }
   async function downloadPosterImage(){
     const el=$("#posterPreview");
     if(typeof html2canvas!=="function"){ toast("Fitur ini butuh koneksi internet (sekali saja)","bad"); return; }
@@ -3612,6 +3648,43 @@
   });
   ["posJudul","posSub","posFoot"].forEach(id=>{ const el=$("#"+id); if(el) el.addEventListener("input",renderPosterPreview); });
   $("#posUseLogo").addEventListener("click",()=>{ $("#posUseLogo").classList.toggle("on"); renderPosterPreview(); });
+  $("#posProdukImg").addEventListener("change",e=>{
+    const p=(S.products||[]).find(x=>x.id===e.target.value);
+    posterImage = p ? p.photo : "";
+    $("#posImgPrev").innerHTML = posterImage ? `<img src="${posterImage}" alt="">` : "Foto";
+    $("#posUploadImg").value="";
+    renderPosterPreview();
+  });
+  $("#posUploadImg").addEventListener("change",e=>{
+    const file=e.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=()=>{
+      const img=new Image();
+      img.onload=()=>{
+        let w=img.width, h=img.height, max=500;
+        if(w>h){ if(w>max){ h=Math.round(h*max/w); w=max; } } else if(h>max){ w=Math.round(w*max/h); h=max; }
+        const c=document.createElement("canvas"); c.width=w; c.height=h;
+        c.getContext("2d").drawImage(img,0,0,w,h);
+        posterImage=c.toDataURL("image/jpeg",0.85);
+        $("#posImgPrev").innerHTML=`<img src="${posterImage}" alt="">`;
+        $("#posProdukImg").value="";
+        renderPosterPreview();
+      };
+      img.src=reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+  $("#posImgClear").addEventListener("click",()=>{
+    posterImage=""; $("#posImgPrev").innerHTML="Foto"; $("#posProdukImg").value=""; $("#posUploadImg").value="";
+    renderPosterPreview();
+  });
+  $("#posterIllustPicker").addEventListener("click",e=>{
+    const b=e.target.closest("[data-poster-em]"); if(!b) return;
+    posterImage = makeIllustration(b.dataset.posterEm);
+    $("#posImgPrev").innerHTML = `<img src="${posterImage}" alt="">`;
+    $("#posProdukImg").value=""; $("#posUploadImg").value="";
+    renderPosterPreview();
+  });
   $("#posDownloadBtn").addEventListener("click",downloadPosterImage);
 
   const renderers={dashboard:renderDashboard,kasir:renderKasir,kas:renderKas,produk:renderProdTable,opname:renderOpname,poster:renderPoster,laporan:renderLaporan,akuntansi:renderAkuntansi,setting:renderSetting};
