@@ -1853,9 +1853,15 @@
   function openScanUI(){
     $("#scanLog").innerHTML=""; $("#scanCamNote").textContent="";
     $("#scanTitle").textContent = scanTarget ? "Scan Barcode Produk" : "Scan Barcode";
-    scanSwitch("alat");
+    // Di HP (native app atau layar sentuh), fokus ke kolom "Alat Scan" akan memunculkan
+    // keyboard on-screen yang bertabrakan/menutupi popup scan. Scanner USB/BT nyaris
+    // tidak dipakai di HP, jadi default-kan ke tab Kamera HP supaya tidak ada keyboard
+    // yang muncul. Di desktop/web (kemungkinan pakai alat scan fisik) tetap default Alat Scan.
+    const native=!!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    const touch = native || ('ontouchstart' in window) || (navigator.maxTouchPoints||0)>0;
+    scanSwitch(touch ? "kamera" : "alat");
     $("#scanModal").hidden=false;
-    setTimeout(()=>{ const i=$("#scanInput"); i&&i.focus(); },60);
+    if(!touch) setTimeout(()=>{ const i=$("#scanInput"); i&&i.focus(); },60);
   }
   function openScan(){
     if(!can("kasir")){ toast("Tidak ada akses kasir","bad"); return; }
