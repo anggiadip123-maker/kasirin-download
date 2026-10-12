@@ -1716,7 +1716,13 @@
           try{ await navigator.share({files:[file], title}); resolve(true); return; }
           catch(e){ if(e && e.name==="AbortError"){ resolve(true); return; } }
         }
-        toast("HP ini tidak mendukung kirim gambar langsung dari sini. Simpan gambar dulu, lalu kirim manual lewat WhatsApp.","bad");
+        // Di komputer/laptop tidak ada mekanisme serah-file ke WhatsApp Desktop/Web (batasan
+        // WhatsApp sendiri, bukan sesuatu yang bisa diakali dari web) -- kasih pesan yang jelas
+        // bedanya dengan kasus "HP tapi browsernya tidak dukung", supaya tidak dikira bug.
+        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints||0)>0;
+        toast(isTouch
+          ? "Browser ini tidak mendukung kirim gambar langsung. Simpan gambar dulu, lalu kirim manual lewat WhatsApp."
+          : "Kirim ke WhatsApp cuma bisa langsung dari HP. Di komputer, simpan gambar dulu lalu lampirkan manual di WhatsApp Web/Desktop.", "bad");
         resolve(false);
       }, "image/png");
     });
