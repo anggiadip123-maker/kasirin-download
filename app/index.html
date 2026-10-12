@@ -1640,8 +1640,10 @@
   async function printReceipt(t){
     $("#printArea").innerHTML = receiptHTML(t);
     applyPaperWidth();
-    const native=!!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-    if(native && nativePrintPlugin){
+    // Cek plugin-nya langsung, JANGAN gantungkan ke isNativePlatform() -- di sebagian HP
+    // itu tidak selalu kembali true walau sudah pasti jalan di APK (plugin cuma bisa ada
+    // kalau window.Capacitor memang ada, jadi keberadaan plugin sudah cukup jadi bukti).
+    if(nativePrintPlugin){
       setTimeout(async()=>{
         try{ await nativePrintPlugin.print(); }
         catch(e){ toast("Gagal membuka dialog cetak. Pastikan printer sudah terhubung/dipasangkan","bad"); }
@@ -1659,11 +1661,12 @@
       if(!blob){ toast("Gagal membuat gambar struk","bad"); return; }
       const name = "struk-"+id+".png";
       const file = new File([blob], name, {type:"image/png"});
-      const native=!!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+      // Cek plugin-nya langsung (bukan isNativePlatform()) -- plugin cuma bisa ada kalau
+      // window.Capacitor memang ada, jadi keberadaan plugin sudah cukup jadi bukti kita di APK.
       // Di APK: langsung simpan ke Download (cara yang sudah teruji reliable) -- JANGAN coba
       // navigator.share dulu, karena di sebagian WebView itu malah membuka menu Bagikan Android
       // (bukan auto-tersimpan), bikin kelihatan seperti "gak kedownload" padahal cuma beda alur.
-      if(native && saveFilePlugin){
+      if(saveFilePlugin){
         try{ await saveFileNative(blob, name, "image/png"); toast("Gambar struk disimpan — cek folder Download","good"); }
         catch(e){ toast("Gagal menyimpan gambar struk: "+(e&&e.message||"coba lagi"),"bad"); }
         return;
@@ -1672,6 +1675,16 @@
         try{ await navigator.share({files:[file], title:"Struk "+id}); return; }
         catch(e){ if(e && e.name==="AbortError") return; }
       }
+      // Browser biasa (bukan APK): coba unduh otomatis lewat trik <a download> -- didukung
+      // semua browser mobile modern (Chrome/Firefox/Safari), beda dengan WebView APK yang
+      // kadang diam-diam gagal (makanya APK pakai saveFileNative, bukan trik ini).
+      try{
+        const dlUrl=URL.createObjectURL(blob);
+        const a=document.createElement("a"); a.href=dlUrl; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(()=>URL.revokeObjectURL(dlUrl),4000);
+        toast("Gambar struk diunduh — cek folder Download","good");
+        return;
+      }catch(e){}
       const url = URL.createObjectURL(blob);
       modal({title:"Gambar Struk", okText:"Tutup", onOk:()=>{},
         bodyHTML:`<p class="acc-note" style="margin:0 0 10px">Tekan &amp; tahan gambar untuk simpan/bagikan</p><img src="${url}" alt="Struk ${esc(id)}" style="width:100%;border-radius:8px;border:1px solid var(--line-strong)">`});
@@ -2830,8 +2843,7 @@
       badge.innerHTML='<span class="pill neutral">Versi Gratis</span>';
       wrap.style.display="";
     }
-    const native=!!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-    if(native && billingPlugin){
+    if(billingPlugin){
       isPlayInstall().then(play=>{
         $("#playBillingWrap").style.display = play ? "" : "none";
         $("#manualPayWrap").style.display = play ? "none" : "";
@@ -2866,8 +2878,7 @@
     const b=$("#limitNagBtn"); if(b) b.addEventListener("click",goLicense);
   }
   async function showLimitDialog(){
-    const native=!!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-    const play = (native && billingPlugin) ? await isPlayInstall() : false;
+    const play = billingPlugin ? await isPlayInstall() : false;
     const url="https://wa.me/"+UPGRADE_WA_NUMBER+"?text="+encodeURIComponent(upgradeWaMsg());
     const payButtons = play
       ? `<button class="btn primary block" id="limitPlayBtn" type="button" style="margin-bottom:8px">🛒 Upgrade PRO lewat Google Play</button>
@@ -2969,12 +2980,11 @@
     const blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"});
     const tokoSafe=(S.settings.store||"Toko").replace(/[^a-z0-9]+/gi,"-").replace(/^-+|-+$/g,"");
     const name="KASIRIN-"+tokoSafe+"-"+todayStr()+".json";
-    const native=!!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
     let done=false, savedNative=false;
     // Di APK: langsung simpan ke Download (reliable, teruji) -- bukan coba navigator.share dulu,
     // supaya tidak membingungkan (share-sheet kebuka padahal user kira langsung ke-download).
     // File yang sudah tersimpan tetap bisa dibagikan manual lewat app Files/Galeri kalau mau.
-    if(native && saveFilePlugin){
+    if(saveFilePlugin){
       try{ await saveFileNative(blob, name, "application/json"); savedNative=true; }
       catch(e){ toast("Gagal menyimpan backup: "+(e&&e.message||"coba lagi"),"bad"); return; }
     } else if(navigator.canShare){
@@ -3716,8 +3726,7 @@
       if(!blob){ toast("Gagal membuat gambar poster","bad"); return; }
       const name = "poster-"+(S.settings.store||"toko").replace(/[^a-z0-9]+/gi,"-")+"-"+todayStr()+".png";
       const file = new File([blob], name, {type:"image/png"});
-      const native=!!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-      if(native && saveFilePlugin){
+      if(saveFilePlugin){
         try{ await saveFileNative(blob, name, "image/png"); toast("Poster disimpan — cek folder Download","good"); }
         catch(e){ toast("Gagal menyimpan poster: "+(e&&e.message||"coba lagi"),"bad"); }
         return;
@@ -3726,6 +3735,14 @@
         try{ await navigator.share({files:[file], title:"Poster Promo"}); return; }
         catch(e){ if(e && e.name==="AbortError") return; }
       }
+      // Browser biasa (bukan APK): coba unduh otomatis lewat trik <a download>.
+      try{
+        const dlUrl=URL.createObjectURL(blob);
+        const a=document.createElement("a"); a.href=dlUrl; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(()=>URL.revokeObjectURL(dlUrl),4000);
+        toast("Poster diunduh — cek folder Download","good");
+        return;
+      }catch(e){}
       const url = URL.createObjectURL(blob);
       modal({title:"Poster Promo", okText:"Tutup", onOk:()=>{},
         bodyHTML:`<p class="acc-note" style="margin:0 0 10px">Tekan &amp; tahan gambar untuk simpan/bagikan</p><img src="${url}" alt="Poster" style="width:100%;border-radius:8px;border:1px solid var(--line-strong)">`});
