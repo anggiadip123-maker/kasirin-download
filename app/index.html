@@ -1655,7 +1655,7 @@
   // sering diam-diam tidak melakukan apa-apa (toast sukses tapi filenya tidak pernah ada).
   async function saveFileNative(blob, filename, mimeType){
     const data = await blobToBase64(blob);
-    await saveFilePlugin.save({ data, filename, mimeType });
+    return await saveFilePlugin.save({ data, filename, mimeType });
   }
   function applyPaperWidth(){
     const mm = S.settings.paperWidth==="58" ? 58 : 80;
@@ -1693,7 +1693,7 @@
       // navigator.share dulu, karena di sebagian WebView itu malah membuka menu Bagikan Android
       // (bukan auto-tersimpan), bikin kelihatan seperti "gak kedownload" padahal cuma beda alur.
       if(saveFilePlugin){
-        try{ await saveFileNative(blob, name, "image/png"); toast("Gambar struk disimpan — cek folder Download","good"); }
+        try{ const r=await saveFileNative(blob, name, "image/png"); toast("Gambar struk disimpan — cek folder "+((r&&r.folder)||"Galeri"),"good"); }
         catch(e){ toast("Gagal menyimpan gambar struk: "+(e&&e.message||"coba lagi"),"bad"); }
         return;
       }
@@ -3796,7 +3796,7 @@
       const name = "poster-"+(S.settings.store||"toko").replace(/[^a-z0-9]+/gi,"-")+"-"+todayStr()+".png";
       const file = new File([blob], name, {type:"image/png"});
       if(saveFilePlugin){
-        try{ await saveFileNative(blob, name, "image/png"); toast("Poster disimpan — cek folder Download","good"); }
+        try{ const r=await saveFileNative(blob, name, "image/png"); toast("Poster disimpan — cek folder "+((r&&r.folder)||"Galeri"),"good"); }
         catch(e){ toast("Gagal menyimpan poster: "+(e&&e.message||"coba lagi"),"bad"); }
         return;
       }
@@ -3990,8 +3990,8 @@
       const blob=await resp.blob();
       const name="qr-katalog-"+storeKey+".png";
       if(saveFilePlugin){
-        await saveFileNative(blob, name, "image/png");
-        toast("QR Code disimpan — cek folder Download","good");
+        const r=await saveFileNative(blob, name, "image/png");
+        toast("QR Code disimpan — cek folder "+((r&&r.folder)||"Galeri"),"good");
         return;
       }
       const dlUrl=URL.createObjectURL(blob);
