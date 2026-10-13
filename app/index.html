@@ -4053,11 +4053,13 @@
     if(!S.settings.katalogEnabled || !pesananOnlineList.length){ el.innerHTML=""; return; }
     el.innerHTML = `<div class="card card-p" style="margin-bottom:12px;border-color:var(--orange)">
       <div class="acc-bar"><div class="section-title" style="margin:0">📥 Pesanan Online Masuk</div><div class="spacer"></div><span class="pill" style="background:var(--orange);color:#fff">${pesananOnlineList.length}</span></div>
-      <div class="mini-list">${pesananOnlineList.map(o=>`
+      <div class="mini-list">${pesananOnlineList.map(o=>{
+        const tipeLabel = o.tipe==="dinein" ? "🍽️ Makan di Tempat" : o.tipe==="takeaway" ? "🥡 Bawa Pulang" : "";
+        return `
         <div class="mini-row" data-pesanan="${esc(o.id)}" style="align-items:flex-start;cursor:pointer">
-          <span><strong>${esc(o.nama||"Pelanggan")}</strong><br><span style="color:var(--muted);font-size:12px">${(o.items||[]).map(it=>it.name+(it.variantLabel?" ("+it.variantLabel+")":"")+" x"+it.qty).join(", ")}</span></span>
+          <span><strong>${esc(o.nama||"Pelanggan")}</strong>${tipeLabel?` <span class="pill neutral" style="font-size:10.5px">${tipeLabel}</span>`:""}<br><span style="color:var(--muted);font-size:12px">${(o.items||[]).map(it=>it.name+(it.variantLabel?" ("+it.variantLabel+")":"")+" x"+it.qty).join(", ")}</span></span>
           <span style="text-align:right"><span class="mono">${rp(o.total||0)}</span><br><button class="btn sm primary" data-isi="${esc(o.id)}" type="button" style="margin-top:4px">Isi ke Keranjang</button></span>
-        </div>`).join("")}</div>
+        </div>`;}).join("")}</div>
     </div>`;
   }
   function fillCartFromOrderItems(items){
@@ -4083,7 +4085,8 @@
     const order=pesananOnlineList.find(o=>o.id===orderId); if(!order) return;
     const doFill=()=>{
       fillCartFromOrderItems(order.items);
-      toast("Pesanan "+(order.nama||"")+" diisi ke keranjang","good");
+      const tipeNote = order.tipe==="dinein" ? " — jangan lupa pilih meja (Makan di Tempat)" : order.tipe==="takeaway" ? " — Bawa Pulang" : "";
+      toast("Pesanan "+(order.nama||"")+" diisi ke keranjang"+tipeNote,"good");
       pesananOnlineList=pesananOnlineList.filter(o=>o.id!==orderId);
       renderPesananOnline();
       (async()=>{

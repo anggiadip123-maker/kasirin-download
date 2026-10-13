@@ -71,6 +71,14 @@
   .namafield .errmsg{display:none;color:var(--bad);font-size:11.5px;margin-top:5px}
   .namafield.show-err .errmsg{display:block}
   .namafield.show-err input{border-color:var(--bad)}
+  .tipefield{margin-bottom:12px}
+  .tipefield label.tlabel{display:block;font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+  .tipe-opts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .tipe-opt{padding:11px 8px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font-size:13.5px;font-weight:700;cursor:pointer;text-align:center}
+  .tipe-opt.active{background:var(--navy);border-color:var(--navy);color:#fff}
+  .tipefield .errmsg{display:none;color:var(--bad);font-size:11.5px;margin-top:5px}
+  .tipefield.show-err .errmsg{display:block}
+  .tipefield.show-err .tipe-opt{border-color:var(--bad)}
   .dfoot .total{display:flex;justify-content:space-between;font-weight:800;font-size:16px;margin-bottom:12px}
   .wabtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border:0;border-radius:12px;background:#25D366;color:#fff;font-weight:800;font-size:15px;cursor:pointer}
   .wabtn:disabled{background:var(--line);color:var(--muted);cursor:not-allowed}
@@ -116,7 +124,7 @@
     return;
   }
 
-  let store=null, products=[], cart={}; // cart key -> {id,name,photo,price,qty,variantLabel}
+  let store=null, products=[], cart={}, orderTipe=null; // cart key -> {id,name,photo,price,qty,variantLabel}; orderTipe: "dinein" | "takeaway"
 
   function normalizePhone(telp){
     let d=String(telp||"").replace(/\D/g,"");
@@ -237,8 +245,14 @@
       return;
     }
     $("#namaField").classList.remove("show-err");
+    if(!orderTipe){
+      $("#tipeField").classList.add("show-err");
+      return;
+    }
+    $("#tipeField").classList.remove("show-err");
+    const tipeLabel = orderTipe==="dinein" ? "Makan di Tempat" : "Bawa Pulang";
     const lines=items.map(it=>`- ${it.name}${it.variantLabel?" ("+it.variantLabel+")":""} x${it.qty} = ${rp(it.price*it.qty)}`);
-    const text = `Halo, saya ${nama} mau pesan dari ${store&&store.nama?store.nama:"katalog"}:\n\n${lines.join("\n")}\n\nTotal: ${rp(cartTotal())}\n\nNama: ${nama}\n\nMohon info selanjutnya ya. Terima kasih.`;
+    const text = `Halo, saya ${nama} mau pesan dari ${store&&store.nama?store.nama:"katalog"} (${tipeLabel}):\n\n${lines.join("\n")}\n\nTotal: ${rp(cartTotal())}\n\nNama: ${nama}\nTipe: ${tipeLabel}\n\nMohon info selanjutnya ya. Terima kasih.`;
     // Selalu ke nomor WhatsApp yang terdaftar di toko (store.telp) -- tidak pernah ke wa.me/?text=
     // generik (itu cuma buka menu pilih kontak sendiri, bukan ke toko), makanya tombolnya
     // dinonaktifkan dari awal kalau toko belum isi nomor, daripada diam-diam salah sasaran.
@@ -248,15 +262,15 @@
     // cuma pelengkap (biar kasir bisa auto-isi keranjang), jadi dibuat fire-and-forget --
     // kalaupun gagal/offline, pesanan via WA tetap jalan seperti biasa.
     window.open(url, "_blank");
-    savePesananOnline(nama, items);
+    savePesananOnline(nama, items, orderTipe);
   }
-  async function savePesananOnline(nama, items){
+  async function savePesananOnline(nama, items, tipe){
     try{
       if(!db) return;
       await ensureAuth();
       const orderItems = items.map(it=>({ id: it.id, name: it.name, variantLabel: it.variantLabel||"", price: it.price, qty: it.qty }));
       await db.collection("katalogToko").doc(storeKey).collection("pesanan").add({
-        nama, items: orderItems, total: cartTotal(), status: "baru", createdAt: new Date().toISOString()
+        nama, tipe: tipe||"", items: orderItems, total: cartTotal(), status: "baru", createdAt: new Date().toISOString()
       });
     }catch(e){ /* diam-diam, tidak mengganggu -- pesanan via WA tetap terkirim */ }
   }
@@ -293,6 +307,14 @@
               <label for="namaPemesan">Nama Pemesan</label>
               <input id="namaPemesan" placeholder="Nama kamu" autocomplete="name">
               <div class="errmsg">Isi nama dulu ya, biar toko tahu pesanan ini dari siapa</div>
+            </div>
+            <div class="tipefield" id="tipeField">
+              <label class="tlabel">Tipe Pesanan</label>
+              <div class="tipe-opts">
+                <button type="button" class="tipe-opt" data-tipe="dinein">🍽️ Makan di Tempat</button>
+                <button type="button" class="tipe-opt" data-tipe="takeaway">🥡 Bawa Pulang</button>
+              </div>
+              <div class="errmsg">Pilih dulu ya, makan di tempat atau bawa pulang</div>
             </div>
             <div class="total"><span>Total</span><span id="dTotal">Rp0</span></div>
             ${normalizePhone(store.telp) ? "" : `<p class="nonumnote">Toko ini belum mengatur nomor WhatsApp, jadi pesanan tidak bisa dikirim lewat sini.</p>`}
@@ -332,6 +354,12 @@
       else if(e.target.closest("[data-dec]")) changeQty(key, -1);
     });
     $("#sendWaBtn").addEventListener("click", sendToWhatsApp);
+    $("#tipeField").addEventListener("click", e=>{
+      const b=e.target.closest("[data-tipe]"); if(!b) return;
+      orderTipe=b.dataset.tipe;
+      document.querySelectorAll(".tipe-opt").forEach(x=>x.classList.toggle("active", x.dataset.tipe===orderTipe));
+      $("#tipeField").classList.remove("show-err");
+    });
   }
 
   let db=null, authP=null;
