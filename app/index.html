@@ -484,6 +484,43 @@
   }
   .menu-toggle{display:none}
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+  /* ================= Mode Perangkat Kasir (HP / Tablet) =================
+     Pilihan eksplisit dari pengguna (diisi saat daftar, bisa diubah di Setting) supaya
+     tata letak Kasir/POS tidak cuma mengikuti lebar layar otomatis -- tablet yang lebarnya
+     pas-pasan (mis. 768-1024px) sebelumnya jatuh ke tata letak "tertumpuk" yang canggung,
+     bukan panel keranjang di pojok kanan maupun bottom-sheet yang rapi. Selector di bawah
+     sengaja digabung dengan "body." supaya spesifisitasnya lebih tinggi daripada aturan
+     responsif di atas (menang terlepas dari lebar layar sungguhan). */
+  body.kasir-tablet .pos{grid-template-columns:1fr 384px}
+  body.kasir-tablet .cart{
+    position:sticky;top:80px;left:auto;right:auto;bottom:auto;width:auto;max-width:none;
+    border-radius:var(--radius);box-shadow:var(--shadow);transform:none;max-height:none;overflow-y:visible;
+  }
+  body.kasir-tablet .cart-handle{display:none}
+  body.kasir-tablet .cart h3{display:block}
+  body.kasir-tablet .pos-left{padding-bottom:0}
+
+  body.kasir-hp .pos{grid-template-columns:1fr}
+  body.kasir-hp .cart{
+    position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;max-width:100%;
+    border-radius:18px 18px 0 0;box-shadow:0 -10px 30px rgba(15,23,42,.18);
+    transform:translateY(calc(100% - 58px));transition:transform .28s ease;
+    z-index:35;max-height:86vh;overflow-y:auto;
+  }
+  body.kasir-hp .cart.expanded{transform:translateY(0)}
+  body.kasir-hp .cart-handle{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:15px 18px;cursor:pointer;position:sticky;top:0;background:var(--surface);
+    border-bottom:1px solid var(--line);font-weight:600;font-size:13.5px;
+  }
+  body.kasir-hp .cart-handle .ch-chev{color:var(--muted);transition:transform .25s;flex:none}
+  body.kasir-hp .cart.expanded .cart-handle .ch-chev{transform:rotate(180deg)}
+  body.kasir-hp .cart h3{display:none}
+  body.kasir-hp .pos-left{padding-bottom:80px}
+  .device-mode-opts{display:flex;gap:10px;margin-top:4px}
+  .device-mode-opt{flex:1;padding:12px;border:1.5px solid var(--line);border-radius:12px;background:var(--surface);cursor:pointer;text-align:center;font-weight:600;font-size:13.5px;color:var(--muted)}
+  .device-mode-opt.active{border-color:var(--navy);color:var(--navy);background:var(--surface-2)}
 </style>
 </head>
 <body>
@@ -845,6 +882,13 @@
           <div class="section-title">Tampilan</div>
           <div class="toggle"><button class="switch" id="themeSwitch" aria-label="Mode gelap"></button><span>Mode gelap</span></div>
           <p style="color:var(--muted);margin:14px 0 0">Mengikuti sistem selama belum diubah. Preferensi disimpan di perangkat ini.</p>
+          <div class="field" style="margin-top:14px"><label>Perangkat Kasir</label>
+            <div class="device-mode-opts" id="setDeviceMode">
+              <button type="button" class="device-mode-opt" data-mode="hp">📱 HP</button>
+              <button type="button" class="device-mode-opt" data-mode="tablet">💻 Tablet</button>
+            </div>
+          </div>
+          <p style="color:var(--muted);font-size:11.5px;margin:8px 0 0">Tablet: keranjang Kasir selalu jadi panel di pojok kanan (coba otomatis ke mode landscape). HP: keranjang jadi bottom-sheet yang bisa ditarik dari bawah.</p>
         </div>
         <div class="card card-p admin-only" id="licenseCard">
           <div class="acc-bar"><div class="section-title" style="margin:0">Lisensi</div><div class="spacer"></div><span id="licenseBadge"></span></div>
@@ -997,6 +1041,12 @@
         <option value="fnb">Resto / Kafe / Warung — pesanan per Meja &amp; Atas Nama</option>
         <option value="retail">Toko / Retail — bayar langsung</option>
       </select>
+    </label>
+    <label class="field"><span>Dipakai di HP atau Tablet?</span>
+      <div class="device-mode-opts" id="suDeviceMode">
+        <button type="button" class="device-mode-opt" data-mode="hp">📱 HP</button>
+        <button type="button" class="device-mode-opt" data-mode="tablet">💻 Tablet</button>
+      </div>
     </label>
     <label class="field"><span>Sandi (PIN 4–6 angka)</span><input class="input" id="suPin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="••••" /></label>
     <label class="field"><span>Ulangi Sandi</span><input class="input" id="suPin2" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="••••" /></label>
@@ -1205,6 +1255,7 @@
     if(!S.trialStart) S.trialStart=todayStr();
     if(S.settings.mataBosEnabled==null) S.settings.mataBosEnabled=false;
     if(S.settings.katalogEnabled==null) S.settings.katalogEnabled=false;
+    if(!S.settings.kasirMode) S.settings.kasirMode = (window.innerWidth>=900 ? "tablet" : "hp");
   }
   function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 
@@ -2540,6 +2591,7 @@
     $("#tableModeSwitch").classList.toggle("on", !!s.tableMode);
     $("#setTableCount").value = s.tableCount==null?8:s.tableCount;
     $("#themeSwitch").classList.toggle("on", curTheme()==="dark");
+    $$("#setDeviceMode .device-mode-opt").forEach(b=>b.classList.toggle("active", b.dataset.mode===(s.kasirMode||"hp")));
     $("#cloudBackupSwitch").classList.toggle("on", s.cloudBackupEnabled!==false);
     $("#mataBosSwitch").classList.toggle("on", !!s.mataBosEnabled);
     $("#katalogSwitch").classList.toggle("on", !!s.katalogEnabled);
@@ -2699,9 +2751,17 @@
     const lg=$(".login-logo"); if(lg) $("#setupLogo").src=lg.src;
     ["suStore","suPhone","suPin","suPin2"].forEach(id=>{ $("#"+id).value=""; });
     $("#suErr").textContent="";
+    // Pra-pilih Mode HP/Tablet berdasarkan lebar layar sekarang -- cuma saran awal, pengguna
+    // tetap bisa ganti sebelum daftar (mis. HP yang kebetulan lebar, atau tablet kecil).
+    const guess = window.innerWidth>=900 ? "tablet" : "hp";
+    $$("#suDeviceMode .device-mode-opt").forEach(b=>b.classList.toggle("active", b.dataset.mode===guess));
     $("#setupScreen").hidden=false;
     setTimeout(()=>{ const p=$("#suStore"); p&&p.focus(); },50);
   }
+  $("#suDeviceMode").addEventListener("click",e=>{
+    const b=e.target.closest("[data-mode]"); if(!b) return;
+    $$("#suDeviceMode .device-mode-opt").forEach(x=>x.classList.toggle("active", x===b));
+  });
   function doSetup(){
     const store=$("#suStore").value.trim(), phone=$("#suPhone").value.trim().replace(/[^0-9+]/g,""), pin=$("#suPin").value.trim(), pin2=$("#suPin2").value.trim();
     const err=m=>{ $("#suErr").textContent=m; };
@@ -2714,12 +2774,14 @@
     admin.pin=hashPin(pin); admin.active=true;
     S.users=[admin];
     const fnb=$("#suType").value==="fnb";
-    Object.assign(S.settings,{store,phone,addr:"",cashier:admin.name,tableMode:fnb,tableCount:fnb?8:(S.settings.tableCount==null?8:S.settings.tableCount)});
+    const deviceModeBtn=$("#suDeviceMode .device-mode-opt.active");
+    const kasirMode=deviceModeBtn?deviceModeBtn.dataset.mode:"hp";
+    Object.assign(S.settings,{store,phone,addr:"",cashier:admin.name,tableMode:fnb,tableCount:fnb?8:(S.settings.tableCount==null?8:S.settings.tableCount),kasirMode});
     S.setupDone=true; S.session=admin.id;
     audit("Registrasi toko", store);
     save();
     $("#setupScreen").hidden=true;
-    applyAccess(); applyChrome();
+    applyAccess(); applyChrome(); applyKasirMode();
     go("dashboard");
     toast("Selamat datang, "+store,"good");
     setTimeout(issueRecoveryCode,400);
@@ -2816,6 +2878,11 @@
   $("#themeSwitch").addEventListener("click",()=>{
     const next = curTheme()==="dark" ? "light" : "dark";
     S.settings.theme = next; save(); applyTheme(); renderSetting();
+  });
+  $("#setDeviceMode").addEventListener("click",e=>{
+    const b=e.target.closest("[data-mode]"); if(!b) return;
+    S.settings.kasirMode = b.dataset.mode; save(); applyKasirMode(); renderSetting();
+    toast(b.dataset.mode==="tablet" ? "Mode Tablet aktif — keranjang di pojok kanan" : "Mode HP aktif — keranjang jadi bottom-sheet","good");
   });
   function fmtBackupTime(iso){
     if(!iso) return "";
@@ -3153,7 +3220,7 @@
       onOk:()=>{
         const val=($("#resetConfirmInput").value||"").trim();
         if(val!=="HAPUS"){ toast("Ketik HAPUS (huruf besar) untuk konfirmasi","bad"); return false; }
-        localStorage.removeItem(KEY); load(); applyTheme(); applyChrome(); showLogin(); toast("Semua data telah dihapus","good");
+        localStorage.removeItem(KEY); load(); applyTheme(); applyChrome(); applyKasirMode(); showLogin(); toast("Semua data telah dihapus","good");
       }});
   });
 
@@ -3165,6 +3232,23 @@
   function applyTheme(){
     if(S.settings.theme) document.documentElement.setAttribute("data-theme", S.settings.theme);
     else document.documentElement.removeAttribute("data-theme");
+  }
+  // Mode HP/Tablet: paksa tata letak Kasir (keranjang di pojok kanan utk Tablet, bottom-sheet
+  // utk HP) terlepas dari lebar layar sungguhan, lihat CSS "body.kasir-tablet/.kasir-hp".
+  // Khusus Tablet juga dicoba kunci ke landscape -- best-effort, banyak browser/konteks tidak
+  // dukung ini (terutama di luar WebView native/fullscreen), jadi dibungkus try/catch dan
+  // dibiarkan diam-diam gagal tanpa mengganggu pengguna kalau tidak didukung.
+  function applyKasirMode(){
+    const mode = S.settings.kasirMode==="tablet" ? "tablet" : "hp";
+    document.body.classList.toggle("kasir-tablet", mode==="tablet");
+    document.body.classList.toggle("kasir-hp", mode==="hp");
+    try{
+      if(mode==="tablet" && screen.orientation && screen.orientation.lock){
+        screen.orientation.lock("landscape").catch(()=>{});
+      } else if(mode==="hp" && screen.orientation && screen.orientation.unlock){
+        screen.orientation.unlock();
+      }
+    }catch(e){ /* tidak didukung di browser/konteks ini, diamkan */ }
   }
   function applyChrome(){
     $("#storeChip").textContent = S.settings.store;
@@ -4129,7 +4213,7 @@
   const renderers={dashboard:renderDashboard,kasir:renderKasir,kas:renderKas,produk:renderProdTable,opname:renderOpname,poster:renderPoster,laporan:renderLaporan,akuntansi:renderAkuntansi,matabos:renderMataBos,setting:renderSetting};
 
   /* ================= Init ================= */
-  load(); applyTheme(); applyChrome();
+  load(); applyTheme(); applyChrome(); applyKasirMode();
   tick(); setInterval(tick,1000);
   window.addEventListener("hashchange",()=>{ const v=location.hash.slice(1); if(renderers[v]) go(v); });
   if(currentUser()){
