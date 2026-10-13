@@ -934,6 +934,15 @@
             <div class="field"><label>Link Katalog (bagikan ke pelanggan)</label><input class="input mono" id="katalogLinkInput" readonly></div>
             <div class="row-flex"><button class="btn sm" id="katalogCopyBtn" type="button">📋 Salin Link</button><button class="btn sm" id="katalogSyncBtn" type="button">🔄 Sinkronkan Sekarang</button></div>
             <p id="katalogSyncInfo" style="color:var(--muted);font-size:12px;margin:8px 0 0"></p>
+            <div class="row-flex" style="margin-top:14px;align-items:flex-start;flex-wrap:nowrap">
+              <div style="width:120px;height:120px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;flex:none;display:flex;align-items:center;justify-content:center">
+                <img id="katalogQrImg" alt="QR Katalog" style="width:100%;height:100%;object-fit:contain">
+              </div>
+              <div style="flex:1;min-width:0">
+                <p style="color:var(--muted);font-size:12px;margin:0 0 8px">Cetak atau tempel QR ini di meja/kasir, biar pelanggan tinggal scan buat buka katalog online dari HP mereka.</p>
+                <button class="btn sm" id="katalogQrDownloadBtn" type="button">💾 Unduh QR Code</button>
+              </div>
+            </div>
           </div>
         </div>
         <div class="card card-p admin-only" style="grid-column:1/-1">
@@ -2868,6 +2877,7 @@
     toast("Menyinkronkan produk ke katalog...");
     await syncKatalog();
   });
+  $("#katalogQrDownloadBtn").addEventListener("click",downloadKatalogQr);
   async function copyText(text){
     try{ await navigator.clipboard.writeText(text); return true; }
     catch(e){
@@ -3953,9 +3963,32 @@
     wrap.style.display = on ? "" : "none";
     if(!on) return;
     const storeKey=getStoreLicenseKey();
-    $("#katalogLinkInput").value = storeKey ? (KATALOG_BASE_URL+storeKey) : "(isi Nama Toko dulu)";
+    const link = storeKey ? (KATALOG_BASE_URL+storeKey) : "";
+    $("#katalogLinkInput").value = link || "(isi Nama Toko dulu)";
+    $("#katalogQrImg").src = link ? ("https://api.qrserver.com/v1/create-qr-code/?size=300x300&data="+encodeURIComponent(link)) : "";
     const iso=localStorage.getItem("kasirpro.lastKatalogSync");
     $("#katalogSyncInfo").textContent = iso ? "Sinkron terakhir: "+fmtBackupTime(iso) : "Belum pernah sinkron";
+  }
+  async function downloadKatalogQr(){
+    const storeKey=getStoreLicenseKey();
+    if(!storeKey){ toast("Isi Nama Toko dulu di Profil Toko","bad"); return; }
+    const link=KATALOG_BASE_URL+storeKey;
+    const qrUrl="https://api.qrserver.com/v1/create-qr-code/?size=600x600&data="+encodeURIComponent(link);
+    try{
+      const resp=await fetch(qrUrl);
+      if(!resp.ok) throw new Error("gagal mengambil QR");
+      const blob=await resp.blob();
+      const name="qr-katalog-"+storeKey+".png";
+      if(saveFilePlugin){
+        await saveFileNative(blob, name, "image/png");
+        toast("QR Code disimpan — cek folder Download","good");
+        return;
+      }
+      const dlUrl=URL.createObjectURL(blob);
+      const a=document.createElement("a"); a.href=dlUrl; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(dlUrl),4000);
+      toast("QR Code diunduh — cek folder Download","good");
+    }catch(e){ toast("Gagal mengunduh QR Code, pastikan ada koneksi internet","bad"); }
   }
   let katalogSyncing=false;
   async function syncKatalog(){

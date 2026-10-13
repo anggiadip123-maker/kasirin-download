@@ -64,8 +64,17 @@
   .ditem .qty{display:flex;align-items:center;gap:7px}
   .ditem .qty button{width:26px;height:26px;border:1px solid var(--line);background:var(--bg);border-radius:7px;font-weight:800;cursor:pointer;color:var(--ink)}
   .dfoot{padding:14px 18px 18px;border-top:1px solid var(--line)}
+  .namafield{margin-bottom:12px}
+  .namafield label{display:block;font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+  .namafield input{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:10px;font-size:14px;background:var(--bg);color:var(--ink);box-sizing:border-box}
+  .namafield input.err{border-color:var(--bad)}
+  .namafield .errmsg{display:none;color:var(--bad);font-size:11.5px;margin-top:5px}
+  .namafield.show-err .errmsg{display:block}
+  .namafield.show-err input{border-color:var(--bad)}
   .dfoot .total{display:flex;justify-content:space-between;font-weight:800;font-size:16px;margin-bottom:12px}
   .wabtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border:0;border-radius:12px;background:#25D366;color:#fff;font-weight:800;font-size:15px;cursor:pointer}
+  .wabtn:disabled{background:var(--line);color:var(--muted);cursor:not-allowed}
+  .nonumnote{text-align:center;color:var(--bad);font-size:12px;margin:0 0 10px}
   footer.pw{text-align:center;padding:24px 16px;font-size:11.5px;color:var(--muted)}
   footer.pw a{color:inherit;font-weight:700}
   .state{text-align:center;padding:60px 20px;color:var(--muted)}
@@ -219,9 +228,20 @@
     const items=Object.values(cart);
     if(!items.length) return;
     const phone=normalizePhone(store && store.telp);
+    if(!phone) return; // tombol sudah dinonaktifkan kalau toko belum punya nomor, ini jaga-jaga saja
+    const nama=$("#namaPemesan").value.trim();
+    if(!nama){
+      $("#namaField").classList.add("show-err");
+      $("#namaPemesan").focus();
+      return;
+    }
+    $("#namaField").classList.remove("show-err");
     const lines=items.map(it=>`- ${it.name}${it.variantLabel?" ("+it.variantLabel+")":""} x${it.qty} = ${rp(it.price*it.qty)}`);
-    const text = `Halo, saya mau pesan dari ${store&&store.nama?store.nama:"katalog"}:\n\n${lines.join("\n")}\n\nTotal: ${rp(cartTotal())}\n\nMohon info selanjutnya ya. Terima kasih.`;
-    const url = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}` : `https://wa.me/?text=${encodeURIComponent(text)}`;
+    const text = `Halo, saya ${nama} mau pesan dari ${store&&store.nama?store.nama:"katalog"}:\n\n${lines.join("\n")}\n\nTotal: ${rp(cartTotal())}\n\nNama: ${nama}\n\nMohon info selanjutnya ya. Terima kasih.`;
+    // Selalu ke nomor WhatsApp yang terdaftar di toko (store.telp) -- tidak pernah ke wa.me/?text=
+    // generik (itu cuma buka menu pilih kontak sendiri, bukan ke toko), makanya tombolnya
+    // dinonaktifkan dari awal kalau toko belum isi nomor, daripada diam-diam salah sasaran.
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank");
   }
 
@@ -253,8 +273,14 @@
           <div class="dhead"><h3>Keranjang Pesanan</h3><button id="closeDrawerBtn" type="button">✕</button></div>
           <div class="ditems" id="ditems"></div>
           <div class="dfoot">
+            <div class="namafield" id="namaField">
+              <label for="namaPemesan">Nama Pemesan</label>
+              <input id="namaPemesan" placeholder="Nama kamu" autocomplete="name">
+              <div class="errmsg">Isi nama dulu ya, biar toko tahu pesanan ini dari siapa</div>
+            </div>
             <div class="total"><span>Total</span><span id="dTotal">Rp0</span></div>
-            <button class="wabtn" id="sendWaBtn" type="button">💬 Pesan via WhatsApp</button>
+            ${normalizePhone(store.telp) ? "" : `<p class="nonumnote">Toko ini belum mengatur nomor WhatsApp, jadi pesanan tidak bisa dikirim lewat sini.</p>`}
+            <button class="wabtn" id="sendWaBtn" type="button" ${normalizePhone(store.telp)?"":"disabled"}>💬 Pesan via WhatsApp</button>
           </div>
         </div>
       </div>
