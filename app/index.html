@@ -154,8 +154,9 @@
   .chip{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);color:var(--muted);font-size:12px;font-weight:500}
   .chip.mono{color:var(--ink)}
   .avatar{width:24px;height:24px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;font-weight:600;font-size:11px;font-family:"Instrument Sans",sans-serif}
-  .icon-btn{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:transparent;color:var(--muted);display:grid;place-items:center;transition:color .15s,border-color .15s}
+  .icon-btn{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:transparent;color:var(--muted);display:grid;place-items:center;transition:color .15s,border-color .15s;position:relative}
   .icon-btn svg{width:17px;height:17px;stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .notif-badge{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 3px;border-radius:999px;background:var(--bad);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1;font-family:"Instrument Sans",sans-serif}
   .icon-btn:hover{color:var(--ink);border-color:var(--line-strong)}
 
   .view{padding:28px 32px 72px;max-width:1180px;width:100%}
@@ -588,6 +589,7 @@
         <span class="chip mono" id="clockChip">--:--</span>
         <button class="icon-btn" id="bellBtn" aria-label="Notifikasi">
           <svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>
+          <span class="notif-badge" id="notifBadge" hidden>0</span>
         </button>
         <span class="chip"><span class="avatar" id="userAvatar">A</span><span id="userName">Admin</span><span class="pill neutral" id="userRole"></span></span>
         <button class="icon-btn" id="logoutBtn" aria-label="Keluar / kunci layar" title="Keluar">
@@ -1305,7 +1307,6 @@
     if(!currentUser()){ showLogin(); return; }
     if(!can(view)) view = (ACCESS[currentUser().role]||["dashboard"])[0];
     if(view!=="matabos" && typeof detachMataBos==="function") detachMataBos();
-    if(view!=="kasir" && typeof detachPesananOnline==="function") detachPesananOnline();
     $$(".view").forEach(v=>v.hidden = v.id!=="view-"+view);
     $$("#nav button").forEach(b=>b.classList.toggle("active", b.dataset.view===view));
     $("#pageTitle").textContent = TITLES[view];
@@ -2689,6 +2690,7 @@
   }
   function showLogin(){
     S.session=null; save();
+    if(typeof detachPesananOnline==="function") detachPesananOnline();
     if(!S.setupDone){ showSetup(); return; }
     $("#loginUser").innerHTML = (S.users||[]).filter(u=>u.active).map(u=>`<option value="${u.id}">${u.name} — ${u.role}</option>`).join("");
     $("#loginPin").value=""; $("#loginErr").textContent="";
@@ -2795,6 +2797,7 @@
     S.session=u.id; save();
     $("#loginScreen").hidden=true;
     applyAccess(); applyChrome();
+    if(S.settings.katalogEnabled) listenPesananOnline();
     go((ACCESS[u.role]||["dashboard"])[0]);
     toast("Selamat datang, "+u.name,"good");
   }
@@ -2811,6 +2814,10 @@
     inp.focus();
   });
   $("#logoutBtn").addEventListener("click",()=>{ confirmAsk("Keluar / kunci layar sekarang?",showLogin,"Keluar"); });
+  $("#bellBtn").addEventListener("click",()=>{
+    if(pesananOnlineList.length && can("kasir")) go("kasir");
+    else toast(pesananOnlineList.length ? "Buka menu Kasir untuk memproses pesanan" : "Tidak ada notifikasi baru");
+  });
   $("#quickExpenseBtn").addEventListener("click",()=>{
     if(!can("akuntansi")){ toast("Hanya Admin yang bisa mencatat pengeluaran","bad"); return; }
     location.hash="akuntansi";
@@ -2960,7 +2967,8 @@
     S.settings.katalogEnabled=on; save();
     renderKatalogLink();
     toast(on?"Katalog Online diaktifkan, menyinkronkan produk...":"Katalog Online dimatikan","good");
-    if(on) syncKatalog();
+    if(on){ syncKatalog(); listenPesananOnline(); }
+    else{ detachPesananOnline(); pesananOnlineList=[]; renderNotifBadge(); renderPesananOnline(); }
   });
   $("#katalogCopyBtn").addEventListener("click",async()=>{
     const ok = await copyText($("#katalogLinkInput").value);
@@ -4141,8 +4149,10 @@
      persis sesuai pesanan, tanpa perlu ketik ulang satu-satu. Stok baru benar-benar
      berkurang pas kasir konfirmasi bayar (commitSale), bukan pas pesanan diterima --
      supaya kasir masih bisa cek ketersediaan riil dulu. */
-  let pesananOnlineUnsub=null, pesananOnlineList=[];
-  function detachPesananOnline(){ if(pesananOnlineUnsub){ try{ pesananOnlineUnsub(); }catch(e){} pesananOnlineUnsub=null; } }
+  let pesananOnlineUnsub=null, pesananOnlineList=[], pesananOnlineSeenIds=null;
+  function detachPesananOnline(){ if(pesananOnlineUnsub){ try{ pesananOnlineUnsub(); }catch(e){} pesananOnlineUnsub=null; } pesananOnlineSeenIds=null; }
+  // Didengarkan GLOBAL (bukan cuma selagi di layar Kasir) supaya badge lonceng di topbar bisa
+  // kelihatan dari halaman mana saja -- lihat pemanggilannya di init app & toggle Katalog Online.
   async function listenPesananOnline(){
     if(pesananOnlineUnsub) return; // sudah jalan
     const storeKey=getStoreLicenseKey(); if(!storeKey) return;
@@ -4152,9 +4162,38 @@
         .orderBy("createdAt","desc").limit(50)
         .onSnapshot(snap=>{
           pesananOnlineList = snap.docs.map(d=>Object.assign({id:d.id}, d.data())).filter(o=>o.status==="baru");
+          const ids=new Set(pesananOnlineList.map(o=>o.id));
+          if(pesananOnlineSeenIds){
+            const isNew=[...ids].some(id=>!pesananOnlineSeenIds.has(id));
+            if(isNew) notifyNewPesanan();
+          }
+          pesananOnlineSeenIds=ids;
           renderPesananOnline();
+          renderNotifBadge();
         }, ()=>{ /* gagal diam-diam -- tidak mengganggu kerja kasir */ });
     }catch(e){ /* diam-diam */ }
+  }
+  function renderNotifBadge(){
+    const el=$("#notifBadge"); if(!el) return;
+    const n=pesananOnlineList.length;
+    el.hidden = n===0;
+    el.textContent = n>9 ? "9+" : String(n);
+  }
+  // Bunyi + getar singkat saat pesanan online BARU masuk, supaya kasir sadar walau sedang
+  // tidak buka menu Kasir. Dibungkus try/catch -- diam-diam diabaikan kalau tidak didukung.
+  function notifyNewPesanan(){
+    try{
+      const AC=window.AudioContext||window.webkitAudioContext;
+      if(AC){
+        const a=new AC(), o=a.createOscillator(), g=a.createGain();
+        o.connect(g); g.connect(a.destination);
+        o.frequency.value=660; g.gain.value=.06;
+        o.start();
+        setTimeout(()=>{ o.frequency.value=880; },120);
+        setTimeout(()=>{ o.stop(); a.close(); },260);
+      }
+    }catch(e){}
+    try{ if(navigator.vibrate) navigator.vibrate([150,80,150]); }catch(e){}
   }
   function renderPesananOnline(){
     const el=$("#pesananOnlineBar"); if(!el) return;
@@ -4197,6 +4236,7 @@
       toast("Pesanan "+(order.nama||"")+" diisi ke keranjang"+tipeNote,"good");
       pesananOnlineList=pesananOnlineList.filter(o=>o.id!==orderId);
       renderPesananOnline();
+      renderNotifBadge();
       (async()=>{
         try{
           const storeKey=getStoreLicenseKey(); const db=await initFirebase();
@@ -4218,6 +4258,7 @@
   window.addEventListener("hashchange",()=>{ const v=location.hash.slice(1); if(renderers[v]) go(v); });
   if(currentUser()){
     applyAccess();
+    if(S.settings.katalogEnabled) listenPesananOnline();
     const start=(location.hash||"#dashboard").slice(1);
     go(renderers[start] && can(start) ? start : (ACCESS[currentUser().role]||["dashboard"])[0]);
   } else {
