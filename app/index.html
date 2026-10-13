@@ -397,7 +397,11 @@
   .nav button[data-locked]{opacity:.45}
 
   /* ================= Scan ================= */
-  #scanModal{position:fixed;inset:0;z-index:70;display:grid;place-items:center;padding:20px;background:rgba(20,21,17,.5)}
+  /* z-index harus LEBIH TINGGI dari .modal-back (90) -- tombol Scan juga dipakai dari dalam
+     popup Tambah/Ubah Produk (pfScan), jadi popup scan-nya wajib tampil DI ATAS popup produk
+     itu, bukan ketutup di belakangnya (kalau sama/lebih rendah, scan-nya kebuka tapi kelihatan
+     seperti tidak terjadi apa-apa karena ketutup popup produk yang masih terbuka). */
+  #scanModal{position:fixed;inset:0;z-index:95;display:grid;place-items:center;padding:20px;background:rgba(20,21,17,.5)}
   #scanModal[hidden]{display:none}
   .scan-card{width:100%;max-width:420px;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:20px}
   .scan-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;font-family:"Instrument Sans",sans-serif;font-weight:700;font-size:17px}
@@ -1936,6 +1940,10 @@
   /* -------- Scan barcode (USB/BT scanner + kamera HP) -------- */
   let scanTab="alat", scanStream=null, scanRAF=0, scanLast={code:"",t:0}, scanTarget=null;
   function openScanUI(){
+    // Tutup dulu keyboard yang mungkin masih aktif dari kolom sebelumnya (mis. field Harga/Stok
+    // di popup Tambah Produk) -- kalau tidak di-blur, Android tetap menampilkan keyboard-nya
+    // walau popup scan sudah kebuka di atasnya, jadi area kameranya ketutup sebagian/seluruhnya.
+    if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
     $("#scanLog").innerHTML=""; $("#scanCamNote").textContent="";
     $("#scanTitle").textContent = scanTarget ? "Scan Barcode Produk" : "Scan Barcode";
     // Di HP (native app atau layar sentuh), fokus ke kolom "Alat Scan" akan memunculkan
