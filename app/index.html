@@ -813,19 +813,22 @@
 
     <!-- ============ AKUNTANSI ============ -->
     <section class="view" id="view-akuntansi" hidden>
-      <div class="tabs" id="accTabs">
-        <button class="tab active" data-acc="ikhtisar">Ikhtisar</button>
-        <button class="tab" data-acc="jurnal">Jurnal Umum</button>
-        <button class="tab" data-acc="besar">Buku Besar</button>
-        <button class="tab" data-acc="saldo">Neraca Saldo</button>
-        <button class="tab" data-acc="labarugi">Laba Rugi</button>
-        <button class="tab" data-acc="neraca">Neraca</button>
-        <button class="tab" data-acc="aruskas">Arus Kas</button>
-        <button class="tab" data-acc="piutang">Piutang &amp; Hutang</button>
-        <button class="tab" data-acc="transaksi">Transaksi</button>
-        <button class="tab" data-acc="aset">Aset Tetap</button>
-        <button class="tab" data-acc="tutup">Tutup Buku</button>
-        <button class="tab" data-acc="integrasi">Integrasi</button>
+      <div class="row-flex" style="justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="tabs" id="accTabs" style="margin-bottom:0;flex:1">
+          <button class="tab active" data-acc="ikhtisar">Ikhtisar</button>
+          <button class="tab" data-acc="jurnal">Jurnal Umum</button>
+          <button class="tab" data-acc="besar">Buku Besar</button>
+          <button class="tab" data-acc="saldo">Neraca Saldo</button>
+          <button class="tab" data-acc="labarugi">Laba Rugi</button>
+          <button class="tab" data-acc="neraca">Neraca</button>
+          <button class="tab" data-acc="aruskas">Arus Kas</button>
+          <button class="tab" data-acc="piutang">Piutang &amp; Hutang</button>
+          <button class="tab" data-acc="transaksi">Transaksi</button>
+          <button class="tab" data-acc="aset">Aset Tetap</button>
+          <button class="tab" data-acc="tutup">Tutup Buku</button>
+          <button class="tab" data-acc="integrasi">Integrasi</button>
+        </div>
+        <button class="btn sm" id="accPrintBtn" type="button" style="flex:none;margin-left:10px">🖨️ Cetak / PDF</button>
       </div>
       <div id="accBody"></div>
     </section>
@@ -1749,6 +1752,46 @@
     }
     setTimeout(()=>{ try{ window.print(); }catch(e){ toast("Dialog cetak tidak tersedia di sini","bad"); } },50);
   }
+  // Export laporan ke PDF: pakai dialog Print bawaan (Android Print Framework / browser
+  // print dialog) yang sudah ada opsi "Simpan sebagai PDF" di keduanya -- tidak perlu
+  // library PDF tambahan. Beda dari printReceipt(): ukuran kertas dipaksa normal (A4-ish),
+  // bukan lebar struk thermal 58/80mm, dan warna dipaksa hitam-putih supaya tetap kebaca
+  // kalau aplikasi lagi dalam Mode Gelap (CSS var teks/bg bisa kebalik terang-gelap).
+  async function printReport(title, bodyHtml){
+    const st=$("#printPaperStyle");
+    if(st) st.textContent = `@media print{ @page{ size:auto; margin:14mm; } #printArea{width:100%} #printArea, #printArea *{ color:#000 !important; background:#fff !important; border-color:#ccc !important; box-shadow:none !important; } }`;
+    const s=S.settings;
+    $("#printArea").innerHTML = `<div class="report-print">
+      <div style="text-align:center;margin-bottom:18px">
+        ${s.logo?`<img src="${s.logo}" style="height:48px;margin-bottom:6px" alt="">`:""}
+        <h2 style="margin:0 0 2px">${esc(s.store||"KASIRIN")}</h2>
+        ${s.addr?`<div style="font-size:12px">${esc(s.addr)}</div>`:""}
+        ${s.phone?`<div style="font-size:12px">${esc(s.phone)}</div>`:""}
+      </div>
+      <h3 style="text-align:center;margin:0 0 4px">${esc(title)}</h3>
+      <div style="text-align:center;font-size:12px;margin-bottom:18px">Dicetak ${new Date().toLocaleString("id-ID",{day:"2-digit",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"})}</div>
+      ${bodyHtml}
+      <p style="text-align:center;font-size:10.5px;margin-top:22px;opacity:.6">Dibuat dengan KASIRIN</p>
+    </div>`;
+    if(nativePrintPlugin){
+      setTimeout(async()=>{
+        try{ await nativePrintPlugin.print(); }
+        catch(e){ toast("Gagal membuka dialog cetak","bad"); }
+      },50);
+      return;
+    }
+    setTimeout(()=>{ try{ window.print(); }catch(e){ toast("Dialog cetak tidak tersedia di sini","bad"); } },50);
+  }
+  function printCurrentAccReport(){
+    const B=$("#accBody"); if(!B) return;
+    const titleMap={ikhtisar:"Ikhtisar Akuntansi",jurnal:"Jurnal Umum",besar:"Buku Besar",saldo:"Neraca Saldo",labarugi:"Laporan Laba Rugi",neraca:"Neraca",aruskas:"Laporan Arus Kas",piutang:"Piutang & Hutang",transaksi:"Catatan Transaksi",aset:"Aset Tetap",tutup:"Tutup Buku",integrasi:"Integrasi"};
+    // Kloning dulu supaya elemen interaktif (filter tanggal, tombol +Tambah/hapus, dsb) tidak
+    // ikut tercetak -- laporan PDF-nya cuma berisi datanya, bukan kontrol form-nya.
+    const clone=B.cloneNode(true);
+    clone.querySelectorAll(".acc-bar, button, input, select, a.btn, [data-act]").forEach(el=>el.remove());
+    printReport(titleMap[accTab]||"Laporan Akuntansi", clone.innerHTML);
+  }
+  $("#accPrintBtn").addEventListener("click",printCurrentAccReport);
   async function shareReceiptImage(receiptEl, id){
     if(typeof html2canvas!=="function"){ toast("Fitur ini butuh koneksi internet (sekali saja)","bad"); return; }
     let canvas;
