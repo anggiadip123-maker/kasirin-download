@@ -868,6 +868,16 @@
           </div>
         </div>
         <div class="card card-p admin-only">
+          <div class="section-title">Printer Thermal Bluetooth</div>
+          <p style="color:var(--muted);margin-top:0">Cetak struk langsung ke printer thermal Bluetooth (ESC/POS) tanpa buka dialog Print Android. Pasangkan dulu printernya lewat menu Bluetooth bawaan HP, baru pilih di sini.</p>
+          <div class="row-flex">
+            <button class="btn sm" id="btPrinterScanBtn" type="button">🔍 Pilih Printer</button>
+            <button class="btn sm ghost" id="btPrinterTestBtn" type="button">🖨️ Test Print</button>
+          </div>
+          <p id="btPrinterInfo" style="color:var(--muted);font-size:12px;margin:10px 0 0">Belum ada printer dipilih</p>
+          <div class="toggle" style="margin-top:10px"><button class="switch" id="btPrinterSwitch" type="button"></button><span>Gunakan Printer Bluetooth langsung (bukan dialog Print)</span></div>
+        </div>
+        <div class="card card-p admin-only">
           <div class="section-title">Mode Meja (Restoran/Resort)</div>
           <div class="toggle"><button class="switch" id="tableModeSwitch"></button><span>Aktifkan pesanan per meja</span></div>
           <div class="field" style="margin-top:12px"><label>Jumlah Meja</label><input class="input" id="setTableCount" type="number" min="0" max="60" step="1" /></div>
@@ -1683,6 +1693,7 @@
   const nativePrintPlugin = (window.Capacitor && window.Capacitor.registerPlugin) ? window.Capacitor.registerPlugin("NativePrint") : null;
   const saveFilePlugin = (window.Capacitor && window.Capacitor.registerPlugin) ? window.Capacitor.registerPlugin("SaveFile") : null;
   const billingPlugin = (window.Capacitor && window.Capacitor.registerPlugin) ? window.Capacitor.registerPlugin("KasirinBilling") : null;
+  const btPrintPlugin = (window.Capacitor && window.Capacitor.registerPlugin) ? window.Capacitor.registerPlugin("BtPrint") : null;
   // Diinstal dari Play Store wajib pakai Google Play Billing (kebijakan Google), selain itu
   // (APK langsung/website) tetap pakai alur DANA/WhatsApp manual yang sudah ada.
   let isPlayInstallCache = null;
@@ -1737,7 +1748,102 @@
     const st = $("#printPaperStyle");
     if(st) st.textContent = `@media print{ @page{ size:${mm}mm auto; margin:2mm; } #printArea{width:${mm}mm} .receipt{width:${inner}mm;max-width:none} }`;
   }
+  // ================= PRINTER THERMAL BLUETOOTH (ESC/POS) =================
+  // Jalur cetak langsung lewat koneksi Bluetooth Classic (SPP) ke printer thermal yang
+  // sudah dipasangkan -- beda dengan dialog Print Android (perlu app driver tambahan macam
+  // RawBT buat sebagian printer thermal murah). Teks dipotong ke lebar kolom sesuai
+  // pengaturan Lebar Kertas Struk yang sudah ada (58mm=32 kolom, 80mm=48 kolom).
+  function bytesToBase64(bytes){ let bin=""; bytes.forEach(b=>bin+=String.fromCharCode(b)); return btoa(bin); }
+  // Word-wrap manual ke lebar kolom printer -- WAJIB dipakai untuk teks bebas (nama toko,
+  // alamat, catatan kaki, nama produk) karena printer thermal tidak auto-wrap kalau
+  // teksnya lebih panjang dari lebar kertas (hasilnya bisa terpotong aneh atau tumpang
+  // tindih tergantung firmware printernya masing-masing).
+  function wrapToCols(text, cols){
+    const words=String(text).split(/\s+/).filter(Boolean);
+    const lines=[]; let cur="";
+    words.forEach(w=>{
+      while(w.length>cols){ if(cur){ lines.push(cur); cur=""; } lines.push(w.slice(0,cols)); w=w.slice(cols); }
+      if(cur && (cur+" "+w).length>cols){ lines.push(cur); cur=w; }
+      else cur = cur ? cur+" "+w : w;
+    });
+    if(cur) lines.push(cur);
+    return lines.length?lines:[""];
+  }
+  function escPosReceiptBytes(t){
+    const cols = S.settings.paperWidth==="58" ? 32 : 48;
+    const bytes=[];
+    const enc=s=>Array.from(new TextEncoder().encode(String(s)));
+    const line=(s="")=>{ bytes.push(...enc(s)); bytes.push(0x0A); };
+    const wrapLine=(s,w)=>wrapToCols(s,w||cols).forEach(l=>line(l));
+    const center=on=>bytes.push(0x1B,0x61,on?0x01:0x00);
+    const bold=on=>bytes.push(0x1B,0x45,on?0x01:0x00);
+    const big=on=>bytes.push(0x1D,0x21,on?0x11:0x00);
+    const hr=()=>line("-".repeat(cols));
+    const twoCol=(l,r)=>{
+      l=String(l); r=String(r);
+      if(l.length+r.length+1>cols){ line(l); line(" ".repeat(Math.max(0,cols-r.length))+r.slice(-cols)); return; }
+      line(l+" ".repeat(cols-l.length-r.length)+r);
+    };
+    const s=S.settings;
+    bytes.push(0x1B,0x40); // reset printer
+    center(true); big(true); bold(true);
+    wrapLine(s.store||"KASIRIN", Math.max(8,Math.floor(cols/2))); // mode lebar-ganda -> kolom efektif cuma separuh
+    big(false); bold(false);
+    if(s.addr) wrapLine(s.addr);
+    if(s.phone) wrapLine(s.phone);
+    line(t.type==="RETUR"?"STRUK RETUR":"Struk Pembelian");
+    center(false);
+    hr();
+    twoCol("No", t.id);
+    if(t.type==="RETUR" && t.refOf) twoCol("Ref", t.refOf);
+    const dt=new Date(t.time);
+    twoCol("Tanggal", dt.toLocaleDateString("id-ID")+" "+dt.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"}));
+    twoCol("Kasir", t.cashier||"-");
+    if(t.table) twoCol(/^Meja \d+$/.test(t.table)?"Meja":"Atas Nama", t.table);
+    if(t.customer) twoCol("Pelanggan", t.customer);
+    hr();
+    (t.items||[]).forEach(i=>{ wrapLine(i.name); twoCol(i.qty+" x "+rp(i.price), rp(i.qty*i.price)); });
+    hr();
+    twoCol("Subtotal", rp(t.subtotal));
+    if(t.discount) twoCol("Diskon", rp(t.discount));
+    if(t.tax) twoCol("Pajak", rp(t.tax));
+    if(t.service) twoCol("Service", rp(t.service));
+    hr();
+    bold(true);
+    twoCol(t.type==="RETUR"?"DIKEMBALIKAN":"TOTAL", rp(t.total));
+    bold(false);
+    const bayar = t.method==="TEMPO" ? 0 : (t.paid||t.total);
+    if(t.type==="RETUR"){ twoCol("Via", methodLabel(t)); }
+    else if(t.splits && t.splits.length){ t.splits.forEach(sp=>twoCol("Bayar ("+sp.method+")", rp(sp.amount))); }
+    else { twoCol("Bayar ("+t.method+")", rp(bayar)); }
+    if(t.method==="TEMPO") twoCol("Sisa (Piutang)", rp(t.total));
+    else if(!(t.splits&&t.splits.length)) twoCol("Kembali", rp(t.change||0));
+    hr();
+    center(true);
+    line(t.type==="RETUR"?"~ Retur diproses ~":"~ Terima kasih ~");
+    if(s.footnote) wrapLine(s.footnote);
+    if(!checkPro()) line("Dibuat dengan KASIRIN");
+    center(false);
+    bytes.push(0x0A,0x0A,0x0A);
+    bytes.push(0x1D,0x56,0x00); // potong kertas (full cut)
+    return bytes;
+  }
+  async function printReceiptBluetooth(t){
+    try{
+      const data=bytesToBase64(escPosReceiptBytes(t));
+      await btPrintPlugin.print({address:S.settings.btPrinterAddress, data});
+      toast("Struk terkirim ke printer Bluetooth","good");
+    }catch(e){
+      toast("Gagal cetak ke printer Bluetooth: "+(e&&e.message||"coba lagi")+". Pastikan printer menyala & dalam jangkauan.","bad");
+    }
+  }
   async function printReceipt(t){
+    // Kalau Printer Bluetooth langsung sudah diatur & diaktifkan, pakai jalur itu --
+    // tidak usah buka dialog Print Android sama sekali.
+    if(S.settings.useBtPrinter && S.settings.btPrinterAddress && btPrintPlugin){
+      printReceiptBluetooth(t);
+      return;
+    }
     $("#printArea").innerHTML = receiptHTML(t);
     applyPaperWidth();
     // Cek plugin-nya langsung, JANGAN gantungkan ke isNativePlatform() -- di sebagian HP
@@ -1752,6 +1858,48 @@
     }
     setTimeout(()=>{ try{ window.print(); }catch(e){ toast("Dialog cetak tidak tersedia di sini","bad"); } },50);
   }
+  let btPairedDevices=[];
+  async function btPrinterScan(){
+    if(!btPrintPlugin){ toast("Fitur ini cuma tersedia di aplikasi APK, bukan di browser","bad"); return; }
+    try{
+      const r=await btPrintPlugin.listPaired();
+      btPairedDevices = (r&&r.devices)||[];
+      if(!btPairedDevices.length){ toast("Belum ada printer dipasangkan. Pasangkan dulu lewat Setting Bluetooth HP.","bad"); return; }
+      modal({title:"Pilih Printer Bluetooth", okText:"Tutup", onOk:()=>{},
+        bodyHTML:`<p class="acc-note" style="margin:0 0 10px">Ketuk printer yang mau dipakai (harus sudah dipasangkan lewat Setting Bluetooth HP).</p>
+          <div class="mini-list">${btPairedDevices.map(d=>`
+            <div class="mini-row" data-btdev="${esc(d.address)}" style="cursor:pointer">
+              <span><strong>${esc(d.name||"(tanpa nama)")}</strong><br><span style="color:var(--muted);font-size:11.5px">${esc(d.address)}</span></span>
+              <span class="pill neutral">Pilih</span>
+            </div>`).join("")}</div>`});
+      setTimeout(()=>{
+        $$(".mini-row[data-btdev]").forEach(row=>row.addEventListener("click",()=>{
+          const addr=row.dataset.btdev;
+          const dev=btPairedDevices.find(d=>d.address===addr);
+          S.settings.btPrinterAddress=addr; S.settings.btPrinterName=dev?dev.name:addr; save();
+          toast("Printer "+(dev&&dev.name||addr)+" dipilih","good");
+          renderSetting();
+          closeModal();
+        }));
+      },30);
+    }catch(e){ toast("Gagal membaca daftar printer: "+(e&&e.message||"coba lagi")+". Pastikan Bluetooth menyala & izin sudah diberikan.","bad"); }
+  }
+  $("#btPrinterScanBtn").addEventListener("click",btPrinterScan);
+  $("#btPrinterTestBtn").addEventListener("click",()=>{
+    if(!btPrintPlugin){ toast("Fitur ini cuma tersedia di aplikasi APK, bukan di browser","bad"); return; }
+    if(!S.settings.btPrinterAddress){ toast("Pilih printer dulu","bad"); return; }
+    printReceiptBluetooth({
+      id:"TEST-PRINT", time:new Date().toISOString(), cashier:(currentUser()&&currentUser().name)||"-",
+      items:[{name:"Contoh Produk",qty:1,price:10000}], subtotal:10000, discount:0, tax:0, service:0,
+      total:10000, method:"CASH", paid:10000, change:0
+    });
+  });
+  $("#btPrinterSwitch").addEventListener("click",()=>{
+    const on=$("#btPrinterSwitch").classList.toggle("on");
+    if(on && !S.settings.btPrinterAddress){ $("#btPrinterSwitch").classList.remove("on"); toast("Pilih printer dulu sebelum mengaktifkan","bad"); return; }
+    S.settings.useBtPrinter=on; save();
+    toast(on?"Printer Bluetooth langsung diaktifkan":"Kembali pakai dialog Print biasa","good");
+  });
   // Export laporan ke PDF: pakai dialog Print bawaan (Android Print Framework / browser
   // print dialog) yang sudah ada opsi "Simpan sebagai PDF" di keduanya -- tidak perlu
   // library PDF tambahan. Beda dari printReceipt(): ukuran kertas dipaksa normal (A4-ish),
@@ -2712,6 +2860,8 @@
     $("#mataBosSwitch").classList.toggle("on", !!s.mataBosEnabled);
     $("#katalogSwitch").classList.toggle("on", !!s.katalogEnabled);
     renderKatalogLink();
+    $("#btPrinterSwitch").classList.toggle("on", !!s.useBtPrinter);
+    $("#btPrinterInfo").textContent = s.btPrinterAddress ? ("Printer dipilih: "+(s.btPrinterName||s.btPrinterAddress)) : "Belum ada printer dipilih";
     applyAccess();
     renderUsers();
     renderAudit();
