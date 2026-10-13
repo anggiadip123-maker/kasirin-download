@@ -88,6 +88,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script>
 (function(){
   "use strict";
@@ -242,7 +243,22 @@
     // generik (itu cuma buka menu pilih kontak sendiri, bukan ke toko), makanya tombolnya
     // dinonaktifkan dari awal kalau toko belum isi nomor, daripada diam-diam salah sasaran.
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+    // Dibuka SEGERA/sinkron (bukan setelah await) supaya tidak diblokir popup blocker browser.
+    // Pesan WA adalah jalur utama yang HARUS selalu terkirim; simpan ke Firestore di bawah ini
+    // cuma pelengkap (biar kasir bisa auto-isi keranjang), jadi dibuat fire-and-forget --
+    // kalaupun gagal/offline, pesanan via WA tetap jalan seperti biasa.
     window.open(url, "_blank");
+    savePesananOnline(nama, items);
+  }
+  async function savePesananOnline(nama, items){
+    try{
+      if(!db) return;
+      await ensureAuth();
+      const orderItems = items.map(it=>({ id: it.id, name: it.name, variantLabel: it.variantLabel||"", price: it.price, qty: it.qty }));
+      await db.collection("katalogToko").doc(storeKey).collection("pesanan").add({
+        nama, items: orderItems, total: cartTotal(), status: "baru", createdAt: new Date().toISOString()
+      });
+    }catch(e){ /* diam-diam, tidak mengganggu -- pesanan via WA tetap terkirim */ }
   }
 
   function renderShell(){
@@ -318,10 +334,19 @@
     $("#sendWaBtn").addEventListener("click", sendToWhatsApp);
   }
 
+  let db=null, authP=null;
+  // Login anonim dipakai cuma supaya pelanggan bisa KIRIM pesanan (Security Rules mewajibkan
+  // request.auth != null untuk menulis) -- tidak ada layar login/isi apa pun, otomatis di
+  // belakang layar. Baca katalog (lihat produk) tidak butuh ini sama sekali.
+  function ensureAuth(){
+    if(!authP) authP = firebase.auth().signInAnonymously();
+    return authP;
+  }
   async function load(){
     try{
-      const app = firebase.initializeApp(FIREBASE_CONFIG);
-      const db = firebase.firestore();
+      firebase.initializeApp(FIREBASE_CONFIG);
+      db = firebase.firestore();
+      ensureAuth().catch(()=>{}); // mulai di belakang layar, tidak perlu ditunggu buat lihat katalog
       const ref = db.collection("katalogToko").doc(storeKey);
       const storeSnap = await ref.get();
       if(!storeSnap.exists){ showState("Toko tidak ditemukan, atau Katalog Online belum diaktifkan pemiliknya."); return; }

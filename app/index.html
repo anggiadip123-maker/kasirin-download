@@ -587,6 +587,7 @@
     <section class="view" id="view-kasir" hidden>
       <div class="pos">
         <div class="pos-left">
+          <div id="pesananOnlineBar"></div>
           <div id="tableBar"></div>
           <div class="pos-tools">
             <input class="input" id="search" placeholder="Cari produk atau scan barcode…" autocomplete="off" />
@@ -1249,6 +1250,7 @@
     if(!currentUser()){ showLogin(); return; }
     if(!can(view)) view = (ACCESS[currentUser().role]||["dashboard"])[0];
     if(view!=="matabos" && typeof detachMataBos==="function") detachMataBos();
+    if(view!=="kasir" && typeof detachPesananOnline==="function") detachPesananOnline();
     $$(".view").forEach(v=>v.hidden = v.id!=="view-"+view);
     $$("#nav button").forEach(b=>b.classList.toggle("active", b.dataset.view===view));
     $("#pageTitle").textContent = TITLES[view];
@@ -2015,7 +2017,7 @@
   $("#scanCamBtn").addEventListener("click",()=>{ scanStream ? stopCam() : startCam(); });
   document.addEventListener("keydown",e=>{ if(e.key==="Escape" && !$("#scanModal").hidden) closeScan(); });
 
-  function renderKasir(){ renderTableBar(); renderCats(); renderProducts(); renderCart(); }
+  function renderKasir(){ renderTableBar(); renderCats(); renderProducts(); renderCart(); renderPesananOnline(); if(S.settings.katalogEnabled) listenPesananOnline(); }
 
   /* ================= CASH MANAGEMENT ================= */
   function renderKas(){
@@ -4024,6 +4026,78 @@
     }catch(e){ /* diam-diam, tidak mengganggu kerja kasir -- coba lagi di perubahan produk berikutnya */ }
     katalogSyncing=false;
   }
+
+  /* ================= PESANAN ONLINE MASUK (dari Katalog Online) =================
+     Pelanggan yang pesan lewat Katalog Online (katalogToko/{storeKey}/pesanan) --
+     kasir bisa lihat daftarnya di sini & tekan sekali buat auto-isi keranjang
+     persis sesuai pesanan, tanpa perlu ketik ulang satu-satu. Stok baru benar-benar
+     berkurang pas kasir konfirmasi bayar (commitSale), bukan pas pesanan diterima --
+     supaya kasir masih bisa cek ketersediaan riil dulu. */
+  let pesananOnlineUnsub=null, pesananOnlineList=[];
+  function detachPesananOnline(){ if(pesananOnlineUnsub){ try{ pesananOnlineUnsub(); }catch(e){} pesananOnlineUnsub=null; } }
+  async function listenPesananOnline(){
+    if(pesananOnlineUnsub) return; // sudah jalan
+    const storeKey=getStoreLicenseKey(); if(!storeKey) return;
+    const db=await initFirebase(); if(!db) return;
+    try{
+      pesananOnlineUnsub = db.collection("katalogToko").doc(storeKey).collection("pesanan")
+        .orderBy("createdAt","desc").limit(50)
+        .onSnapshot(snap=>{
+          pesananOnlineList = snap.docs.map(d=>Object.assign({id:d.id}, d.data())).filter(o=>o.status==="baru");
+          renderPesananOnline();
+        }, ()=>{ /* gagal diam-diam -- tidak mengganggu kerja kasir */ });
+    }catch(e){ /* diam-diam */ }
+  }
+  function renderPesananOnline(){
+    const el=$("#pesananOnlineBar"); if(!el) return;
+    if(!S.settings.katalogEnabled || !pesananOnlineList.length){ el.innerHTML=""; return; }
+    el.innerHTML = `<div class="card card-p" style="margin-bottom:12px;border-color:var(--orange)">
+      <div class="acc-bar"><div class="section-title" style="margin:0">📥 Pesanan Online Masuk</div><div class="spacer"></div><span class="pill" style="background:var(--orange);color:#fff">${pesananOnlineList.length}</span></div>
+      <div class="mini-list">${pesananOnlineList.map(o=>`
+        <div class="mini-row" data-pesanan="${esc(o.id)}" style="align-items:flex-start;cursor:pointer">
+          <span><strong>${esc(o.nama||"Pelanggan")}</strong><br><span style="color:var(--muted);font-size:12px">${(o.items||[]).map(it=>it.name+(it.variantLabel?" ("+it.variantLabel+")":"")+" x"+it.qty).join(", ")}</span></span>
+          <span style="text-align:right"><span class="mono">${rp(o.total||0)}</span><br><button class="btn sm primary" data-isi="${esc(o.id)}" type="button" style="margin-top:4px">Isi ke Keranjang</button></span>
+        </div>`).join("")}</div>
+    </div>`;
+  }
+  function fillCartFromOrderItems(items){
+    let skipped=0;
+    (items||[]).forEach(it=>{
+      const p=S.products.find(x=>x.id===it.id);
+      if(!p){ skipped++; return; }
+      if(it.variantLabel){
+        const cartId=p.id+"::"+it.variantLabel;
+        const line=S.cart.find(c=>c.cartId===cartId);
+        if(line) line.qty+=it.qty;
+        else S.cart.push({id:p.id,cartId,name:p.name+" - "+it.variantLabel,variant:it.variantLabel,price:it.price,qty:it.qty});
+      } else {
+        const line=S.cart.find(c=>(c.cartId||c.id)===p.id);
+        if(line) line.qty+=it.qty;
+        else S.cart.push({id:p.id,cartId:p.id,name:p.name,price:it.price,qty:it.qty});
+      }
+    });
+    save(); renderCart(); renderProducts();
+    if(skipped) toast(skipped+" item sudah tidak tersedia, dilewati","bad");
+  }
+  async function acceptPesananOnline(orderId){
+    const order=pesananOnlineList.find(o=>o.id===orderId); if(!order) return;
+    const doFill=()=>{
+      fillCartFromOrderItems(order.items);
+      toast("Pesanan "+(order.nama||"")+" diisi ke keranjang","good");
+      pesananOnlineList=pesananOnlineList.filter(o=>o.id!==orderId);
+      renderPesananOnline();
+      (async()=>{
+        try{
+          const storeKey=getStoreLicenseKey(); const db=await initFirebase();
+          if(db && storeKey) await db.collection("katalogToko").doc(storeKey).collection("pesanan").doc(orderId).set({status:"diproses"},{merge:true});
+        }catch(e){ /* diam-diam */ }
+      })();
+    };
+    if(S.cart.length) confirmAsk("Keranjang belum kosong. Gabung pesanan online ini ke keranjang yang ada?",doFill,"Gabung"); else doFill();
+  }
+  $("#pesananOnlineBar").addEventListener("click",e=>{
+    const b=e.target.closest("[data-isi]"); if(b) acceptPesananOnline(b.dataset.isi);
+  });
 
   const renderers={dashboard:renderDashboard,kasir:renderKasir,kas:renderKas,produk:renderProdTable,opname:renderOpname,poster:renderPoster,laporan:renderLaporan,akuntansi:renderAkuntansi,matabos:renderMataBos,setting:renderSetting};
 
