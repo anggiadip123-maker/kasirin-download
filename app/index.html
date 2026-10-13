@@ -926,6 +926,16 @@
           <p style="color:var(--muted);margin-top:0">Pantau transaksi toko ini secara real-time dari HP lain (Owner/Admin), misalnya kamu di rumah sementara kasir jalan di toko. Butuh internet. Data yang dikirim hanya ringkasan transaksi (waktu, total, metode bayar, kasir, jumlah item) — bukan detail produk atau pembukuan lengkap.</p>
           <div class="toggle" style="margin-top:8px"><button class="switch" id="mataBosSwitch" type="button"></button><span>Aktifkan Mata Bos</span></div>
         </div>
+        <div class="card card-p admin-only">
+          <div class="section-title">Katalog Online</div>
+          <p style="color:var(--muted);margin-top:0">Buat halaman katalog produk yang bisa dibuka siapa saja lewat link — pelanggan bisa lihat foto &amp; harga, pilih beberapa produk, lalu kirim pesanannya sekaligus lewat WhatsApp. Butuh internet. Cuma produk yang aktif di Kasir yang ditampilkan (nama, foto, harga, kategori) — bukan stok/HPP/data toko lainnya.</p>
+          <div class="toggle" style="margin-top:8px"><button class="switch" id="katalogSwitch" type="button"></button><span>Aktifkan Katalog Online</span></div>
+          <div id="katalogLinkWrap" style="margin-top:10px;display:none">
+            <div class="field"><label>Link Katalog (bagikan ke pelanggan)</label><input class="input mono" id="katalogLinkInput" readonly></div>
+            <div class="row-flex"><button class="btn sm" id="katalogCopyBtn" type="button">📋 Salin Link</button><button class="btn sm" id="katalogSyncBtn" type="button">🔄 Sinkronkan Sekarang</button></div>
+            <p id="katalogSyncInfo" style="color:var(--muted);font-size:12px;margin:8px 0 0"></p>
+          </div>
+        </div>
         <div class="card card-p admin-only" style="grid-column:1/-1">
           <div class="acc-bar"><div class="section-title" style="margin:0">Log Aktivitas</div><div class="spacer"></div><button class="btn sm" id="auditCsv">Export CSV</button></div>
           <div class="scan-log" id="auditRows" style="max-height:280px"></div>
@@ -1180,6 +1190,7 @@
     if(S.setupDone===undefined) S.setupDone=true;
     if(!S.trialStart) S.trialStart=todayStr();
     if(S.settings.mataBosEnabled==null) S.settings.mataBosEnabled=false;
+    if(S.settings.katalogEnabled==null) S.settings.katalogEnabled=false;
   }
   function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 
@@ -2199,6 +2210,7 @@
         if(isNew) S.products.push({id:uid(),...data});
         else Object.assign(S.products.find(x=>x.id===p.id),data);
         save(); renderProdTable(); renderProducts(); toast(isNew?"Produk ditambahkan":"Produk diperbarui","good");
+        if(S.settings.katalogEnabled) syncKatalog();
       }});
     setTimeout(()=>{
       const b=$("#pfScan");
@@ -2249,8 +2261,8 @@
   $("#prodRows").addEventListener("click",e=>{
     const ed=e.target.closest("[data-edit]"), dl=e.target.closest("[data-del]"), tg=e.target.closest("[data-toggle]");
     if(ed) prodModal(S.products.find(p=>p.id===ed.dataset.edit));
-    if(tg){ const p=S.products.find(x=>x.id===tg.dataset.toggle); if(p){ p.active = p.active===false; save(); renderProdTable(); renderProducts(); toast(p.active?"Produk diaktifkan":"Produk dinonaktifkan — disembunyikan dari Kasir"); } }
-    if(dl){ const p=S.products.find(x=>x.id===dl.dataset.del); if(p) confirmAsk("Hapus produk \""+p.name+"\"?",()=>{ S.products=S.products.filter(x=>x.id!==p.id); audit("Hapus produk", p.name); save(); renderProdTable(); toast("Produk dihapus"); },"Hapus"); }
+    if(tg){ const p=S.products.find(x=>x.id===tg.dataset.toggle); if(p){ p.active = p.active===false; save(); renderProdTable(); renderProducts(); toast(p.active?"Produk diaktifkan":"Produk dinonaktifkan — disembunyikan dari Kasir"); if(S.settings.katalogEnabled) syncKatalog(); } }
+    if(dl){ const p=S.products.find(x=>x.id===dl.dataset.del); if(p) confirmAsk("Hapus produk \""+p.name+"\"?",()=>{ S.products=S.products.filter(x=>x.id!==p.id); audit("Hapus produk", p.name); save(); renderProdTable(); toast("Produk dihapus"); if(S.settings.katalogEnabled) syncKatalog(); },"Hapus"); }
   });
 
   /* ================= IMPORT EXCEL ================= */
@@ -2495,6 +2507,8 @@
     $("#themeSwitch").classList.toggle("on", curTheme()==="dark");
     $("#cloudBackupSwitch").classList.toggle("on", s.cloudBackupEnabled!==false);
     $("#mataBosSwitch").classList.toggle("on", !!s.mataBosEnabled);
+    $("#katalogSwitch").classList.toggle("on", !!s.katalogEnabled);
+    renderKatalogLink();
     applyAccess();
     renderUsers();
     renderAudit();
@@ -2837,6 +2851,22 @@
     S.settings.mataBosEnabled=on; save();
     toast(on?"Mata Bos diaktifkan":"Mata Bos dimatikan","good");
     if(on) initMataBos(); else detachMataBos();
+  });
+  $("#katalogSwitch").addEventListener("click",()=>{
+    const on=$("#katalogSwitch").classList.toggle("on");
+    if(on && !getStoreLicenseKey()){ $("#katalogSwitch").classList.remove("on"); toast("Isi Nama Toko dulu di Profil Toko","bad"); return; }
+    S.settings.katalogEnabled=on; save();
+    renderKatalogLink();
+    toast(on?"Katalog Online diaktifkan, menyinkronkan produk...":"Katalog Online dimatikan","good");
+    if(on) syncKatalog();
+  });
+  $("#katalogCopyBtn").addEventListener("click",async()=>{
+    const ok = await copyText($("#katalogLinkInput").value);
+    toast(ok?"Link katalog disalin":"Gagal menyalin, salin manual ya", ok?"good":"bad");
+  });
+  $("#katalogSyncBtn").addEventListener("click",async()=>{
+    toast("Menyinkronkan produk ke katalog...");
+    await syncKatalog();
   });
   async function copyText(text){
     try{ await navigator.clipboard.writeText(text); return true; }
@@ -3838,8 +3868,11 @@
   };
   let mataBosApp=null, mataBosDb=null, mataBosAuthP=null, mataBosUnsubs=[];
   function mataBosAvailable(){ return typeof firebase!=="undefined" && !!firebase.initializeApp; }
-  async function initMataBos(){
-    if(!S.settings.mataBosEnabled) return null;
+  // Inisialisasi Firebase generik -- dipakai bareng oleh Mata Bos DAN Katalog Online, jadi
+  // sengaja TIDAK dicek ke toggle fitur tertentu di sini (itu tanggung jawab pemanggilnya
+  // masing-masing). Dulu ini nempel di initMataBos() dan ngecek S.settings.mataBosEnabled,
+  // akibatnya Katalog Online ikut tidak jalan kalau Mata Bos-nya kebetulan mati.
+  async function initFirebase(){
     if(!mataBosAvailable()) return null;
     if(mataBosDb) return mataBosDb;
     try{
@@ -3849,6 +3882,10 @@
       await mataBosAuthP;
       return mataBosDb;
     }catch(e){ mataBosDb=null; return null; }
+  }
+  async function initMataBos(){
+    if(!S.settings.mataBosEnabled) return null;
+    return initFirebase();
   }
   function detachMataBos(){ mataBosUnsubs.forEach(u=>{ try{ u(); }catch(e){} }); mataBosUnsubs=[]; }
   async function pushMataBosTransaksi(t){
@@ -3900,6 +3937,60 @@
     });
   }
   $("#mataBosGotoSetting").addEventListener("click",()=>go("setting"));
+
+  /* ================= KATALOG ONLINE (opsional, publik) =================
+     Menitipkan daftar produk aktif (bukan transaksi/omzet/HPP) ke Firestore
+     supaya bisa ditampilkan di halaman katalog publik terpisah
+     (kasirin-download/katalog) untuk pelanggan pesan online. Sengaja pakai
+     koleksi path TERPISAH dari Mata Bos ("katalogToko", bukan "toko")
+     supaya Security Rules bisa kasih akses baca publik ("allow read: if
+     true") khusus di situ saja, tanpa membuka data omzet/transaksi yang
+     harus tetap privat (yang masih wajib login anonim buat baca/tulis). */
+  const KATALOG_BASE_URL = "https://anggiadip123-maker.github.io/kasirin-download/katalog/?toko=";
+  function renderKatalogLink(){
+    const wrap=$("#katalogLinkWrap"); if(!wrap) return;
+    const on=!!S.settings.katalogEnabled;
+    wrap.style.display = on ? "" : "none";
+    if(!on) return;
+    const storeKey=getStoreLicenseKey();
+    $("#katalogLinkInput").value = storeKey ? (KATALOG_BASE_URL+storeKey) : "(isi Nama Toko dulu)";
+    const iso=localStorage.getItem("kasirpro.lastKatalogSync");
+    $("#katalogSyncInfo").textContent = iso ? "Sinkron terakhir: "+fmtBackupTime(iso) : "Belum pernah sinkron";
+  }
+  let katalogSyncing=false;
+  async function syncKatalog(){
+    if(!S.settings.katalogEnabled) return;
+    if(katalogSyncing) return;
+    const storeKey=getStoreLicenseKey(); if(!storeKey) return;
+    katalogSyncing=true;
+    try{
+      const db = await initFirebase();
+      if(db){
+        const ref=db.collection("katalogToko").doc(storeKey);
+        await ref.set({
+          nama:S.settings.store||storeKey, alamat:S.settings.addr||"", telp:S.settings.phone||"",
+          updatedAt:new Date().toISOString()
+        },{merge:true});
+        const produkRef=ref.collection("produk");
+        const existingSnap=await produkRef.get();
+        const existingIds=new Set(existingSnap.docs.map(d=>d.id));
+        const batch=db.batch();
+        S.products.filter(p=>p.active!==false).forEach(p=>{
+          batch.set(produkRef.doc(p.id), {
+            name:p.name||"", price:p.price||0, cat:p.cat||"", photo:p.photo||"",
+            tersedia: p.stock==null || p.stock>0,
+            variant: p.variant ? {group:p.variant.group, options:p.variant.options, priceDiff:!!p.variant.priceDiff, prices:p.variant.prices||null} : null
+          });
+          existingIds.delete(p.id);
+        });
+        existingIds.forEach(id=>batch.delete(produkRef.doc(id)));
+        await batch.commit();
+        localStorage.setItem("kasirpro.lastKatalogSync", new Date().toISOString());
+        renderKatalogLink();
+      }
+    }catch(e){ /* diam-diam, tidak mengganggu kerja kasir -- coba lagi di perubahan produk berikutnya */ }
+    katalogSyncing=false;
+  }
 
   const renderers={dashboard:renderDashboard,kasir:renderKasir,kas:renderKas,produk:renderProdTable,opname:renderOpname,poster:renderPoster,laporan:renderLaporan,akuntansi:renderAkuntansi,matabos:renderMataBos,setting:renderSetting};
 
