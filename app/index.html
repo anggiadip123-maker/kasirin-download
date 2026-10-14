@@ -4370,7 +4370,7 @@
      supaya Security Rules bisa kasih akses baca publik ("allow read: if
      true") khusus di situ saja, tanpa membuka data omzet/transaksi yang
      harus tetap privat (yang masih wajib login anonim buat baca/tulis). */
-  const PANTAU_BASE_URL = "https://anggiadip123-maker.github.io/kasirin-download/pantau/?toko=";
+  const PANTAU_BASE_URL = "https://anggiadip123-maker.github.io/kasirin-download/mata-bos/?toko=";
   function renderMataBosLink(){
     const wrap=$("#mataBosLinkWrap"); if(!wrap) return;
     const on=!!S.settings.mataBosEnabled;
@@ -4379,7 +4379,7 @@
     const storeKey=getStoreLicenseKey();
     $("#mataBosLinkInput").value = storeKey ? (PANTAU_BASE_URL+storeKey) : "(isi Nama Toko dulu)";
   }
-  const KATALOG_BASE_URL = "https://anggiadip123-maker.github.io/kasirin-download/katalog/?toko=";
+  const KATALOG_BASE_URL = "https://anggiadip123-maker.github.io/kasirin-download/katalog-online/?toko=";
   function renderKatalogLink(){
     const wrap=$("#katalogLinkWrap"); if(!wrap) return;
     const on=!!S.settings.katalogEnabled;
