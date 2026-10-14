@@ -992,6 +992,11 @@
           <div class="section-title">Mata Bos</div>
           <p style="color:var(--muted);margin-top:0">Pantau transaksi toko ini secara real-time dari HP lain (Owner/Admin), misalnya kamu di rumah sementara kasir jalan di toko. Butuh internet. Data yang dikirim hanya ringkasan transaksi (waktu, total, metode bayar, kasir, jumlah item) — bukan detail produk atau pembukuan lengkap.</p>
           <div class="toggle" style="margin-top:8px"><button class="switch" id="mataBosSwitch" type="button"></button><span>Aktifkan Mata Bos</span></div>
+          <div id="mataBosLinkWrap" style="margin-top:10px;display:none">
+            <div class="field"><label>Link Pantau (bagikan ke pemilik/HP lain)</label><input class="input mono" id="mataBosLinkInput" readonly></div>
+            <div class="row-flex"><button class="btn sm" id="mataBosCopyBtn" type="button">📋 Salin Link</button><button class="btn sm" id="mataBosWaBtn" type="button" style="background:#25D366;color:#fff;border-color:#25D366">💬 Kirim ke WhatsApp</button></div>
+            <p style="color:var(--muted);font-size:12px;margin:8px 0 0">Siapa pun yang buka link ini langsung lihat omzet &amp; transaksi real-time toko — tanpa perlu install, daftar, atau PIN.</p>
+          </div>
         </div>
         <div class="card card-p admin-only">
           <div class="section-title">Katalog Online</div>
@@ -2859,6 +2864,7 @@
     $$("#setDeviceMode .device-mode-opt").forEach(b=>b.classList.toggle("active", b.dataset.mode===(s.kasirMode||"hp")));
     $("#cloudBackupSwitch").classList.toggle("on", s.cloudBackupEnabled!==false);
     $("#mataBosSwitch").classList.toggle("on", !!s.mataBosEnabled);
+    renderMataBosLink();
     $("#katalogSwitch").classList.toggle("on", !!s.katalogEnabled);
     renderKatalogLink();
     $("#btPrinterSwitch").classList.toggle("on", !!s.useBtPrinter);
@@ -3224,8 +3230,19 @@
     const on=$("#mataBosSwitch").classList.toggle("on");
     if(on && !getStoreLicenseKey()){ $("#mataBosSwitch").classList.remove("on"); toast("Isi Nama Toko dulu di Profil Toko","bad"); return; }
     S.settings.mataBosEnabled=on; save();
+    renderMataBosLink();
     toast(on?"Mata Bos diaktifkan":"Mata Bos dimatikan","good");
     if(on) initMataBos(); else detachMataBos();
+  });
+  $("#mataBosCopyBtn").addEventListener("click",async()=>{
+    const ok = await copyText($("#mataBosLinkInput").value);
+    toast(ok?"Link pantau disalin":"Gagal menyalin, salin manual ya", ok?"good":"bad");
+  });
+  $("#mataBosWaBtn").addEventListener("click",()=>{
+    const link=$("#mataBosLinkInput").value;
+    if(!link || link.indexOf("http")!==0) return;
+    const text=`Halo, ini link buat pantau omzet & transaksi ${S.settings.store||"toko"} secara real-time:\n${link}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   });
   $("#katalogSwitch").addEventListener("click",()=>{
     const on=$("#katalogSwitch").classList.toggle("on");
@@ -4353,6 +4370,15 @@
      supaya Security Rules bisa kasih akses baca publik ("allow read: if
      true") khusus di situ saja, tanpa membuka data omzet/transaksi yang
      harus tetap privat (yang masih wajib login anonim buat baca/tulis). */
+  const PANTAU_BASE_URL = "https://anggiadip123-maker.github.io/kasirin-download/pantau/?toko=";
+  function renderMataBosLink(){
+    const wrap=$("#mataBosLinkWrap"); if(!wrap) return;
+    const on=!!S.settings.mataBosEnabled;
+    wrap.style.display = on ? "" : "none";
+    if(!on) return;
+    const storeKey=getStoreLicenseKey();
+    $("#mataBosLinkInput").value = storeKey ? (PANTAU_BASE_URL+storeKey) : "(isi Nama Toko dulu)";
+  }
   const KATALOG_BASE_URL = "https://anggiadip123-maker.github.io/kasirin-download/katalog/?toko=";
   function renderKatalogLink(){
     const wrap=$("#katalogLinkWrap"); if(!wrap) return;
