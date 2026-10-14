@@ -991,12 +991,12 @@
         </div>
         <div class="card card-p admin-only">
           <div class="section-title">Mata Bos</div>
-          <p style="color:var(--muted);margin-top:0">Pantau transaksi toko ini secara real-time dari HP lain (Owner/Admin), misalnya kamu di rumah sementara kasir jalan di toko. Butuh internet. Data yang dikirim hanya ringkasan transaksi (waktu, total, metode bayar, kasir, jumlah item) — bukan detail produk atau pembukuan lengkap.</p>
+          <p style="color:var(--muted);margin-top:0">Pantau transaksi toko ini secara real-time dari HP lain lewat link pantau (muncul di bawah setelah diaktifkan), misalnya kamu di rumah sementara kasir jalan di toko. Butuh internet. Data yang dikirim hanya ringkasan transaksi (waktu, total, metode bayar, kasir, jumlah item) — bukan detail produk atau pembukuan lengkap.</p>
           <div class="toggle" style="margin-top:8px"><button class="switch" id="mataBosSwitch" type="button"></button><span>Aktifkan Mata Bos</span></div>
           <div id="mataBosLinkWrap" style="margin-top:10px;display:none">
             <div class="field"><label>Link Pantau (bagikan ke pemilik/HP lain)</label><input class="input mono" id="mataBosLinkInput" readonly></div>
             <div class="row-flex"><button class="btn sm" id="mataBosCopyBtn" type="button">📋 Salin Link</button><button class="btn sm" id="mataBosWaBtn" type="button" style="background:#25D366;color:#fff;border-color:#25D366">💬 Kirim ke WhatsApp</button></div>
-            <p style="color:var(--muted);font-size:12px;margin:8px 0 0">Siapa pun yang buka link ini langsung lihat omzet &amp; transaksi real-time toko — tanpa perlu install, daftar, atau PIN.</p>
+            <p style="color:var(--muted);font-size:12px;margin:8px 0 0">Siapa pun yang punya link ini langsung lihat omzet &amp; transaksi hari ini — tanpa install, daftar, atau PIN. Link berisi kode rahasia acak, jadi bagikan hanya ke orang yang kamu percaya.</p>
           </div>
           <div class="row-flex" style="margin-top:12px"><button class="btn sm danger" id="mataBosClearBtn" type="button">🗑️ Hapus Data Mata Bos di Cloud</button></div>
           <p style="color:var(--muted);font-size:12px;margin:6px 0 0">Menghapus ringkasan omzet &amp; riwayat transaksi Mata Bos yang tersimpan di cloud. Data di HP ini tidak ikut terhapus.</p>
@@ -1150,6 +1150,14 @@
   function trialExpired(){ return trialDaysLeft()<=0; }
   function getStoreLicenseKey(){
     return (S.settings.store||"").trim().toUpperCase().replace(/[^A-Z0-9]+/g,"");
+  }
+  function getMataBosKey(){
+    const base=getStoreLicenseKey(); if(!base) return "";
+    if(!S.settings.mataBosSecret){
+      const a=new Uint8Array(10); (window.crypto||window.msCrypto).getRandomValues(a);
+      S.settings.mataBosSecret=Array.from(a,b=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b%32]).join(""); save();
+    }
+    return base+S.settings.mataBosSecret;
   }
   function generateLicense(storeKey){ return `KASIRIN-PRO-${storeKey}-${LICENSE_SECRET}`; }
   // Kode darurat reset PIN Admin, dipakai kalau pemilik toko lupa PIN DAN tidak simpan kode
@@ -1716,6 +1724,10 @@
   const saveFilePlugin = nativePlugin("SaveFile");
   const billingPlugin = nativePlugin("KasirinBilling");
   const btPrintPlugin = nativePlugin("BtPrint");
+  // Mode offline hanya untuk versi web (GitHub Pages). Di APK semua berkas sudah ada di dalam aplikasi.
+  if("serviceWorker" in navigator && location.protocol==="https:" && /\.github\.io$/.test(location.hostname)){
+    window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
+  }
   // Diinstal dari Play Store wajib pakai Google Play Billing (kebijakan Google), selain itu
   // (APK langsung/website) tetap pakai alur DANA/WhatsApp manual yang sudah ada.
   let isPlayInstallCache = null;
@@ -3267,15 +3279,17 @@
     try{
       const db=await initFirebase();
       if(!db){ toast("Gagal terhubung, cek koneksi internet","bad"); return; }
-      const ref=db.collection("toko").doc(storeKey);
-      for(;;){
-        const snap=await ref.collection("transaksi").limit(400).get();
-        if(snap.empty) break;
-        const batch=db.batch();
-        snap.forEach(d=>batch.delete(d.ref));
-        await batch.commit();
+      for(const docId of [getMataBosKey(), storeKey]){
+        const ref=db.collection("toko").doc(docId);
+        for(;;){
+          const snap=await ref.collection("transaksi").limit(400).get();
+          if(snap.empty) break;
+          const batch=db.batch();
+          snap.forEach(d=>batch.delete(d.ref));
+          await batch.commit();
+        }
+        await ref.delete();
       }
-      await ref.delete();
       toast("Data Mata Bos di cloud sudah dihapus","good");
     }catch(e){ toast("Gagal menghapus data Mata Bos","bad"); }
   }
@@ -4365,7 +4379,7 @@
       if(!S.settings.mataBosEnabled) return;
       const storeKey=getStoreLicenseKey(); if(!storeKey) return;
       const db = await initMataBos(); if(!db) return;
-      const ref = db.collection("toko").doc(storeKey);
+      const ref = db.collection("toko").doc(getMataBosKey());
       const today = todayStr();
       await db.runTransaction(async tx=>{
         const snap = await tx.get(ref);
@@ -4391,7 +4405,7 @@
     initMataBos().then(db=>{
       if(!db){ $("#mataBosStatus").innerHTML='<span class="pill bad">Gagal terhubung</span>'; return; }
       detachMataBos();
-      const ref = db.collection("toko").doc(storeKey);
+      const ref = db.collection("toko").doc(getMataBosKey());
       mataBosUnsubs.push(ref.onSnapshot(snap=>{
         const d = snap.exists ? (snap.data()||{}) : {};
         const sameDay = d.omzetTanggal===todayStr();
@@ -4425,7 +4439,7 @@
     wrap.style.display = on ? "" : "none";
     if(!on) return;
     const storeKey=getStoreLicenseKey();
-    $("#mataBosLinkInput").value = storeKey ? (PANTAU_BASE_URL+storeKey) : "(isi Nama Toko dulu)";
+    $("#mataBosLinkInput").value = storeKey ? (PANTAU_BASE_URL+getMataBosKey()) : "(isi Nama Toko dulu)";
   }
   const KATALOG_BASE_URL = "https://anggiadip123-maker.github.io/kasirin-download/katalog-online/?toko=";
   function renderKatalogLink(){

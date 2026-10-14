@@ -142,6 +142,9 @@
       if(d.nama && document.title.indexOf(d.nama)===-1) {
         document.title = d.nama + " — Mata Bos";
         const h1=$("h1"); if(h1 && h1.textContent!==d.nama) h1.textContent = d.nama;
+      } else if(!snap.exists){
+        const h1=$("h1"); if(h1) h1.textContent = "Data tidak ditemukan";
+        const m=$(".meta"); if(m) m.textContent = "Periksa link pantau, dan pastikan Mata Bos sudah aktif di HP kasir.";
       }
       const sameDay = d.omzetTanggal===todayStr();
       $("#kOmzet").textContent = rp(sameDay?(d.omzetHariIni||0):0);
@@ -156,7 +159,7 @@
 
   async function load(){
     try{
-      renderShell(storeKey);
+      renderShell("Memuat…");
       firebase.initializeApp(FIREBASE_CONFIG);
       const db = firebase.firestore();
       await firebase.auth().signInAnonymously();
