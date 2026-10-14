@@ -997,6 +997,8 @@
             <div class="row-flex"><button class="btn sm" id="mataBosCopyBtn" type="button">📋 Salin Link</button><button class="btn sm" id="mataBosWaBtn" type="button" style="background:#25D366;color:#fff;border-color:#25D366">💬 Kirim ke WhatsApp</button></div>
             <p style="color:var(--muted);font-size:12px;margin:8px 0 0">Siapa pun yang buka link ini langsung lihat omzet &amp; transaksi real-time toko — tanpa perlu install, daftar, atau PIN.</p>
           </div>
+          <div class="row-flex" style="margin-top:12px"><button class="btn sm danger" id="mataBosClearBtn" type="button">🗑️ Hapus Data Mata Bos di Cloud</button></div>
+          <p style="color:var(--muted);font-size:12px;margin:6px 0 0">Menghapus ringkasan omzet &amp; riwayat transaksi Mata Bos yang tersimpan di cloud. Data di HP ini tidak ikut terhapus.</p>
         </div>
         <div class="card card-p admin-only">
           <div class="section-title">Katalog Online</div>
@@ -3243,6 +3245,28 @@
     toast(on?"Mata Bos diaktifkan":"Mata Bos dimatikan","good");
     if(on) initMataBos(); else detachMataBos();
   });
+  async function hapusDataMataBos(){
+    const storeKey=getStoreLicenseKey();
+    if(!storeKey){ toast("Isi Nama Toko dulu di Profil Toko","bad"); return; }
+    toast("Menghapus data Mata Bos di cloud...");
+    try{
+      const db=await initFirebase();
+      if(!db){ toast("Gagal terhubung, cek koneksi internet","bad"); return; }
+      const ref=db.collection("toko").doc(storeKey);
+      for(;;){
+        const snap=await ref.collection("transaksi").limit(400).get();
+        if(snap.empty) break;
+        const batch=db.batch();
+        snap.forEach(d=>batch.delete(d.ref));
+        await batch.commit();
+      }
+      await ref.delete();
+      toast("Data Mata Bos di cloud sudah dihapus","good");
+    }catch(e){ toast("Gagal menghapus data Mata Bos","bad"); }
+  }
+  $("#mataBosClearBtn").addEventListener("click",()=>{
+    confirmAsk("Hapus semua data Mata Bos di cloud (omzet harian & riwayat transaksi) untuk toko ini? Data di HP ini tidak terhapus. Mata Bos akan mulai terisi lagi dari transaksi berikutnya kalau fiturnya masih aktif.",hapusDataMataBos,"Ya, Hapus");
+  });
   $("#mataBosCopyBtn").addEventListener("click",async()=>{
     const ok = await copyText($("#mataBosLinkInput").value);
     toast(ok?"Link pantau disalin":"Gagal menyalin, salin manual ya", ok?"good":"bad");
@@ -4360,12 +4384,12 @@
         $("#mataBosCount").textContent = String(sameDay?(d.omzetCount||0):0);
         $("#mataBosStatus").innerHTML = '<span class="pill good">Terhubung</span>';
       }, ()=>{ $("#mataBosStatus").innerHTML='<span class="pill bad">Gagal terhubung</span>'; }));
-      mataBosUnsubs.push(ref.collection("transaksi").orderBy("time","desc").limit(20).onSnapshot(snap=>{
+      mataBosUnsubs.push(ref.collection("transaksi").where("time",">=",todayStr()+"T00:00:00").orderBy("time","desc").limit(20).onSnapshot(snap=>{
         const rows=[]; snap.forEach(doc=>rows.push(doc.data()));
         $("#mataBosFeed").innerHTML = rows.length ? rows.map(t=>{
           const dt=new Date(t.time||Date.now());
           return `<div class="mini-row"><span>${dt.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})} · <span class="pill neutral">${esc(t.method||"")}</span> · ${esc(t.cashier||"-")}</span><span class="mono">${rp(t.total||0)}</span></div>`;
-        }).join("") : `<div class="empty">Belum ada transaksi</div>`;
+        }).join("") : `<div class="empty">Belum ada transaksi hari ini</div>`;
       }));
     });
   }

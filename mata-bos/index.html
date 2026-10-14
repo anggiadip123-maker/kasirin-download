@@ -148,7 +148,7 @@
       $("#kCount").textContent = String(sameDay?(d.omzetCount||0):0);
       setStatus("good","Terhubung");
     }, ()=>{ setStatus("bad","Gagal terhubung"); }));
-    unsubs.push(ref.collection("transaksi").orderBy("time","desc").limit(20).onSnapshot(snap=>{
+    unsubs.push(ref.collection("transaksi").where("time",">=",todayStr()+"T00:00:00").orderBy("time","desc").limit(20).onSnapshot(snap=>{
       const rows=[]; snap.forEach(doc=>rows.push(doc.data()));
       renderFeed(rows);
     }, ()=>{}));
