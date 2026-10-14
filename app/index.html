@@ -986,6 +986,7 @@
           <div class="acc-bar" style="margin-top:14px"><div class="section-title" style="margin:0;font-size:13px">Backup Otomatis ke Cloud</div></div>
           <div class="toggle" style="margin-top:8px"><button class="switch" id="cloudBackupSwitch" type="button"></button><span>Aktifkan backup otomatis (nonaktif secara default, butuh internet)</span></div>
           <p style="color:var(--muted);font-size:11.5px;margin:6px 0 0"><strong>Penting:</strong> kalau aktif, seluruh data toko (produk, transaksi, laporan keuangan) otomatis dikirim &amp; tersimpan di Google Drive milik penjual/pengembang KASIRIN setiap hari — bukan Drive milikmu sendiri. Ini dipakai sebagai cadangan darurat kalau kamu lupa backup manual dan HP hilang/rusak. Matikan kalau tidak ingin data toko tersimpan di luar HP ini.</p>
+          <div id="cloudCodeWrap" style="display:none;margin-top:10px"><div class="field"><label>Kode Pemulihan Cloud (catat, dibutuhkan untuk memulihkan di HP baru)</label><input class="input mono" id="cloudCodeInput" readonly></div></div>
           <div class="row-flex" style="margin-top:10px"><button class="btn sm" id="cloudRestoreBtn" type="button">☁️ Pulihkan dari Cloud</button></div>
           <p id="lastCloudBackupInfo" style="color:var(--muted);font-size:12px;margin:8px 0 0"></p>
         </div>
@@ -1083,8 +1084,8 @@
     <p class="login-hint" style="margin-bottom:8px">Pindah dari HP lama dan sudah punya file backup?</p>
     <label class="btn block" for="suRestoreFile" style="cursor:pointer">📂 Pulihkan dari Backup (.json)</label>
     <input type="file" id="suRestoreFile" accept=".json,application/json,text/plain,*/*" hidden />
-    <button class="btn block" id="suCloudRestoreBtn" type="button" style="margin-top:8px">☁️ Pulihkan dari Cloud (pakai Nama Toko)</button>
-    <p class="login-hint" style="margin-top:4px">Isi Nama Toko di atas persis seperti sebelumnya, baru tekan tombol ini. Cuma bisa dipakai kalau Backup Otomatis ke Cloud pernah aktif di HP lama.</p>
+    <button class="btn block" id="suCloudRestoreBtn" type="button" style="margin-top:8px">☁️ Pulihkan dari Cloud (Nama Toko + Kode)</button>
+    <p class="login-hint" style="margin-top:4px">Isi Nama Toko di atas persis seperti sebelumnya, tekan tombol ini, lalu masukkan Kode Pemulihan Cloud yang dicatat saat Backup Otomatis ke Cloud diaktifkan di HP lama.</p>
   </div>
 </div>
 
@@ -2891,6 +2892,7 @@
     $("#themeSwitch").classList.toggle("on", curTheme()==="dark");
     $$("#setDeviceMode .device-mode-opt").forEach(b=>b.classList.toggle("active", b.dataset.mode===(s.kasirMode||"hp")));
     $("#cloudBackupSwitch").classList.toggle("on", s.cloudBackupEnabled===true);
+    renderCloudCode();
     $("#mataBosSwitch").classList.toggle("on", !!s.mataBosEnabled);
     renderMataBosLink();
     $("#appModeInfo").textContent = "Mode: " + (btPrintPlugin ? "Aplikasi Android (APK)" : "Browser / Web") + " · Fitur native (printer Bluetooth, simpan ke galeri, WhatsApp) " + (btPrintPlugin ? "aktif" : "tidak tersedia");
@@ -3228,20 +3230,46 @@
     cloudBackupInFlight=true;
     try{
       const dataBase64=utf8ToBase64(JSON.stringify(S));
-      const r=await fetch(UPGRADE_LOG_URL,{method:"POST",body:JSON.stringify({action:"backup",namaToko:S.settings.store,dataBase64})});
+      const r=await fetch(UPGRADE_LOG_URL,{method:"POST",body:JSON.stringify({action:"backup",namaToko:S.settings.store,kode:getCloudCode(),dataBase64})});
       const j=await r.json();
       if(j.result==="ok"){ localStorage.setItem("kasirpro.lastCloudBackup", new Date().toISOString()); renderLastCloudBackup(); }
     }catch(e){ /* gagal diam-diam, dicoba lagi nanti otomatis */ }
     cloudBackupInFlight=false;
   }
-  async function cloudRestore(namaTokoOverride){
+  function normCode(c){ return String(c||"").toUpperCase().replace(/[^A-Z0-9]/g,""); }
+  function getCloudCode(){
+    if(!S.settings.cloudBackupCode){
+      const a=new Uint8Array(12); (window.crypto||window.msCrypto).getRandomValues(a);
+      S.settings.cloudBackupCode=Array.from(a,b=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b%32]).join(""); save();
+    }
+    return S.settings.cloudBackupCode;
+  }
+  function fmtCloudCode(c){ return normCode(c).replace(/(.{4})(?=.)/g,"$1-"); }
+  function renderCloudCode(){
+    const w=$("#cloudCodeWrap"); if(!w) return;
+    const on=S.settings.cloudBackupEnabled===true;
+    w.style.display=on?"":"none";
+    if(on) $("#cloudCodeInput").value=fmtCloudCode(getCloudCode());
+  }
+  function showCloudCode(){
+    modal({title:"Kode Pemulihan Cloud",okText:"Sudah Saya Simpan",onOk:()=>{},
+      bodyHTML:`<p style="margin:0 0 10px;font-size:13.5px;line-height:1.55">Catat atau foto kode ini. Kode dibutuhkan untuk memulihkan data dari cloud di HP baru, bersama Nama Toko. <b>Tanpa kode ini, backup cloud tidak bisa dibuka</b> (Nama Toko saja tidak cukup).</p><div style="font-family:monospace;font-size:20px;font-weight:800;letter-spacing:.05em;text-align:center;padding:14px;border:1px dashed var(--line);border-radius:10px;background:var(--surface-2)">${fmtCloudCode(getCloudCode())}</div>`});
+  }
+  function askCloudRestore(nama){
+    const known=S.settings.cloudBackupCode||"";
+    modal({title:"Pulihkan dari Cloud",okText:"Pulihkan",
+      bodyHTML:`<p style="margin:0 0 10px;font-size:13.5px;line-height:1.55">Masukkan <b>Kode Pemulihan Cloud</b> yang dicatat saat Backup Otomatis ke Cloud diaktifkan.</p><div class="field"><label>Kode Pemulihan Cloud</label><input class="input mono" id="crCode" placeholder="XXXX-XXXX-XXXX" autocomplete="off" value="${fmtCloudCode(known)}"></div>`,
+      onOk:()=>{ const kode=normCode($("#crCode").value); setTimeout(()=>cloudRestore(nama,kode),50); }});
+  }
+  async function cloudRestore(namaTokoOverride,kode){
     const nama=namaTokoOverride!=null?namaTokoOverride:(S.settings.store||"");
     if(!nama.trim()){ toast("Isi Nama Toko dulu","bad"); return; }
+    if(!kode){ askCloudRestore(nama); return; }
     try{
       toast("Mengecek backup cloud...");
-      const r=await fetch(UPGRADE_LOG_URL+"?action=getBackup&toko="+encodeURIComponent(nama));
+      const r=await fetch(UPGRADE_LOG_URL+"?action=getBackup&toko="+encodeURIComponent(nama)+"&kode="+encodeURIComponent(kode));
       const j=await r.json();
-      if(j.result!=="ok" || !j.data){ toast("Belum ada backup cloud untuk nama toko ini","bad"); return; }
+      if(j.result!=="ok" || !j.data){ toast("Backup tidak ditemukan atau kode salah","bad"); return; }
       confirmAsk("Pulihkan data toko dari backup cloud terakhir ("+(j.updated?fmtBackupTime(j.updated):"-")+")? Data saat ini akan ditimpa.",()=>{
         localStorage.setItem(KEY, j.data);
         toast("Berhasil dipulihkan dari cloud, memuat ulang...","good");
@@ -3253,6 +3281,7 @@
     if(S.settings.cloudBackupEnabled===true){
       $("#cloudBackupSwitch").classList.remove("on");
       S.settings.cloudBackupEnabled=false; save();
+      renderCloudCode();
       toast("Backup otomatis ke cloud dimatikan","good");
       return;
     }
@@ -3260,7 +3289,9 @@
       $("#cloudBackupSwitch").classList.add("on");
       S.settings.cloudBackupEnabled=true; save();
       toast("Backup otomatis ke cloud diaktifkan","good");
+      renderCloudCode();
       cloudBackupIfDue();
+      setTimeout(showCloudCode,200);
     },"Ya, Aktifkan");
   });
   $("#cloudRestoreBtn").addEventListener("click",()=>cloudRestore());
