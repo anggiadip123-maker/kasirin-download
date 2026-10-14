@@ -4,96 +4,374 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>KASIRIN — Aplikasi Kasir untuk Warung & Kafe</title>
-<meta name="description" content="KASIRIN: aplikasi kasir + pembukuan otomatis untuk warung, kafe, dan restoran. Jalan offline, data tersimpan di HP kamu.">
+<meta name="description" content="KASIRIN: aplikasi kasir + pembukuan otomatis untuk warung, kafe, dan restoran. Stok, laba, dan utang tercatat sendiri. Jalan tanpa internet. PRO Rp75.000 sekali bayar.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="KASIRIN — Kasir warung & kafe yang mencatat sendiri stok, laba, dan utang">
+<meta property="og:description" content="Jalan tanpa internet, data di HP kamu. Gratis 30 hari, PRO Rp75.000 sekali bayar tanpa langganan.">
+<meta property="og:image" content="https://anggiadip123-maker.github.io/kasirin-download/shots/app-dashboard.jpg">
 <link rel="icon" type="image/png" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  :root{--navy:#0F2C56;--orange:#FF7A00;--tosca:#00C2A8;--bg:#F6F8FB;--ink:#101828;--muted:#5B6678;--line:#E2E7EF;--card:#fff}
-  @media (prefers-color-scheme:dark){:root{--bg:#0B1220;--ink:#EEF2F8;--muted:#9AA7BA;--line:#22304A;--card:#121B2E}}
+  :root{--navy:#0F2C56;--navy2:#163d78;--orange:#FF7A00;--orange-d:#E86F00;--tosca:#00A894;--green:#16A34A;--bg:#F6F8FB;--ink:#101828;--muted:#5B6678;--line:#E2E7EF;--card:#fff;--soft:#EEF3FA}
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.55}
-  .wrap{max-width:560px;margin:0 auto;padding:32px 20px 48px}
-  .brand{display:flex;align-items:center;gap:12px}
-  .brand img{width:52px;height:52px;object-fit:contain}
-  .brand b{font-size:26px;letter-spacing:-.01em;color:var(--navy)}
-  @media (prefers-color-scheme:dark){.brand b{color:#fff}}
-  .tag{font-size:11px;font-weight:700;letter-spacing:.22em;color:var(--tosca);margin-top:2px}
-  h1{font-size:clamp(26px,6vw,34px);line-height:1.15;margin:28px 0 10px;text-wrap:balance}
-  p.lead{color:var(--muted);margin:0 0 24px;font-size:16px}
-  .btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:16px 20px;border-radius:14px;background:var(--orange);color:#fff;font-weight:800;font-size:17px;text-decoration:none;box-shadow:0 6px 18px rgba(255,122,0,.28)}
+  html{scroll-behavior:smooth;scroll-padding-top:74px}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  img{max-width:100%}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+  section{padding:64px 0}
+  .eyebrow{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--tosca);margin-bottom:10px}
+  h2{font-size:clamp(26px,4.2vw,36px);line-height:1.15;margin:0 0 12px;letter-spacing:-.02em;text-wrap:balance;color:var(--navy)}
+  .sub{color:var(--muted);font-size:16.5px;max-width:620px;margin:0 0 32px}
+
+  /* header */
+  header.nav{position:sticky;top:0;z-index:50;background:rgba(246,248,251,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  header.nav .wrap{display:flex;align-items:center;gap:18px;height:64px}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;color:var(--navy);text-decoration:none;letter-spacing:-.01em}
+  .logo img{width:34px;height:34px;object-fit:contain}
+  nav.links{display:flex;gap:20px;margin-left:12px;font-size:14px;font-weight:600;color:var(--muted)}
+  nav.links a{text-decoration:none}
+  nav.links a:hover{color:var(--navy)}
+  .nav-cta{margin-left:auto}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:13px 22px;border-radius:12px;font-weight:700;font-size:15px;text-decoration:none;border:0;cursor:pointer;transition:transform .12s,background .15s}
+  .btn:active{transform:translateY(1px)}
   .btn:focus-visible{outline:3px solid var(--navy);outline-offset:3px}
-  .meta{text-align:center;color:var(--muted);font-size:13px;margin:10px 0 28px}
-  ul.feat{list-style:none;padding:0;margin:0 0 28px;display:grid;gap:10px}
-  ul.feat li{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:14.5px}
-  ul.feat b{color:var(--navy)}
-  @media (prefers-color-scheme:dark){ul.feat b{color:var(--tosca)}}
-  h2{font-size:18px;margin:0 0 10px}
-  ol{margin:0 0 20px;padding-left:20px;color:var(--ink)}
-  ol li{margin:6px 0}
-  .note{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;font-size:13.5px;color:var(--muted)}
-  .gallery{display:flex;gap:12px;overflow-x:auto;padding:4px 2px 14px;margin:0 0 24px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
-  .gallery figure{margin:0;flex:none;width:150px;scroll-snap-align:start}
-  .gallery img{width:100%;height:auto;display:block;border-radius:14px;border:1px solid var(--line);background:var(--card)}
-  .gallery figcaption{font-size:12px;color:var(--muted);text-align:center;margin-top:6px}
-  details{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:8px 0}
-  summary{cursor:pointer;font-weight:600;font-size:14.5px}
-  details p{margin:8px 0 0;font-size:14px;color:var(--muted)}
-  footer{margin-top:28px;text-align:center;font-size:12.5px;color:var(--muted)}
-  footer a{color:inherit}
+  .btn.orange{background:var(--orange);color:#fff}
+  .btn.orange:hover{background:var(--orange-d)}
+  .btn.navy{background:var(--navy);color:#fff}
+  .btn.navy:hover{background:var(--navy2)}
+  .btn.wa{background:#1FA855;color:#fff}
+  .btn.ghost{background:#fff;color:var(--navy);border:1px solid var(--line)}
+  .btn.sm{padding:9px 16px;font-size:13.5px;border-radius:10px}
+  .btn.lg{padding:16px 26px;font-size:16.5px;border-radius:14px}
+
+  /* hero */
+  .hero{padding:48px 0 56px;background:linear-gradient(180deg,#EAF0F9 0%,var(--bg) 100%)}
+  .hero .wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center}
+  .crumb{font-size:13px;color:var(--muted);margin-bottom:16px}
+  .hero h1{font-size:clamp(32px,5.4vw,52px);line-height:1.08;margin:0 0 18px;letter-spacing:-.03em;color:var(--navy);text-wrap:balance}
+  .hero h1 em{font-style:normal;color:var(--orange)}
+  .hero p.lead{font-size:18px;color:var(--muted);margin:0 0 26px;max-width:520px}
+  .cta-row{display:flex;gap:12px;flex-wrap:wrap}
+  .hero .meta{margin-top:14px;font-size:13.5px;color:var(--muted)}
+  .chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:26px}
+  .chip{background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;color:var(--navy)}
+  .phone-wrap{display:flex;justify-content:center}
+  .phone{width:min(290px,70vw);border-radius:38px;padding:11px;background:#0b1424;box-shadow:0 30px 60px -20px rgba(15,44,86,.45)}
+  .phone img{display:block;width:100%;height:auto;border-radius:28px;aspect-ratio:1082/2402;object-fit:cover;object-position:top;background:#fff}
+
+  /* problems */
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .pcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px}
+  .pcard .tag{display:inline-block;font-size:11px;font-weight:700;color:#B42318;background:#FEE4E2;border-radius:6px;padding:3px 9px;margin-bottom:12px}
+  .pcard h3{margin:0 0 8px;font-size:18px;line-height:1.3;color:var(--navy)}
+  .pcard p{margin:0 0 14px;color:var(--muted);font-size:14.5px}
+  .pcard .fix{border-top:1px solid var(--line);padding-top:12px;font-size:14px;font-weight:600;color:#0F7A38}
+  .pcard .fix span{color:var(--muted);font-weight:600;display:block;font-size:11.5px;margin-bottom:2px;text-transform:uppercase;letter-spacing:.06em}
+
+  /* video */
+  .video-box{background:#0b1424;border-radius:18px;padding:10px;max-width:760px;box-shadow:0 24px 50px -24px rgba(15,44,86,.5)}
+  .video-box video{display:block;width:100%;border-radius:12px;background:#000}
+
+  /* timeline */
+  .flow{display:grid;grid-template-columns:.8fr 1.2fr;gap:40px;align-items:start}
+  .steps{display:grid;gap:12px}
+  .step{display:grid;grid-template-columns:44px 1fr;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+  .step .n{width:44px;height:44px;border-radius:12px;background:var(--soft);color:var(--navy);font-weight:800;display:flex;align-items:center;justify-content:center;font-size:16px}
+  .step b{display:block;font-size:15.5px;color:var(--navy)}
+  .step span{color:var(--muted);font-size:14px}
+
+  /* features */
+  .fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .fcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .fcard .ic{width:40px;height:40px;border-radius:11px;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:12px}
+  .fcard b{display:block;color:var(--navy);margin-bottom:4px}
+  .fcard span{color:var(--muted);font-size:14px}
+  .dark{background:var(--navy);color:#fff;border-radius:18px;padding:28px;margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:10px 28px}
+  .dark h3{grid-column:1/-1;margin:0 0 6px;font-size:18px}
+  .dark li{list-style:none;font-size:14.5px;color:#D6E2F5;padding:4px 0 4px 24px;position:relative}
+  .dark li::before{content:"\2713";position:absolute;left:0;color:#5EEAD4;font-weight:800}
+  .dark ul{margin:0;padding:0}
+
+  /* gallery */
+  .gallery{display:flex;gap:16px;overflow-x:auto;padding:6px 2px 18px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+  .gallery figure{margin:0;flex:none;width:200px;scroll-snap-align:start}
+  .gallery img{display:block;width:100%;height:auto;border-radius:18px;border:1px solid var(--line);background:#fff;box-shadow:0 10px 24px -14px rgba(15,44,86,.4)}
+  .gallery figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:8px;font-weight:600}
+
+  /* compare + pricing */
+  .cmp{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);font-size:14.5px;min-width:560px}
+  .cmp th,.cmp td{padding:13px 16px;text-align:left;border-bottom:1px solid var(--line)}
+  .cmp thead th{background:var(--soft);color:var(--navy);font-size:12.5px;text-transform:uppercase;letter-spacing:.06em}
+  .cmp td:nth-child(3){font-weight:700;color:#0F7A38}
+  .cmp tr:last-child td{border-bottom:0}
+  .scroll-x{overflow-x:auto;border-radius:14px}
+  .note-calc{font-size:13px;color:var(--muted);margin:10px 0 0}
+  .plans{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:780px;margin-top:38px}
+  .plan{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:26px;position:relative}
+  .plan.pro{border:2px solid var(--orange);box-shadow:0 20px 40px -24px rgba(255,122,0,.5)}
+  .plan .badge{position:absolute;top:-12px;left:22px;background:var(--orange);color:#fff;font-size:11.5px;font-weight:800;padding:4px 12px;border-radius:999px;letter-spacing:.04em}
+  .plan h3{margin:0 0 4px;font-size:15px;color:var(--muted);font-weight:700}
+  .plan .price{font-size:32px;font-weight:800;color:var(--navy);letter-spacing:-.02em;margin:0 0 4px}
+  .plan .price small{font-size:14px;font-weight:600;color:var(--muted)}
+  .plan ul{list-style:none;padding:0;margin:16px 0 20px;display:grid;gap:9px;font-size:14.5px}
+  .plan li{padding-left:24px;position:relative}
+  .plan li::before{content:"\2713";position:absolute;left:0;color:var(--green);font-weight:800}
+  .plan .btn{width:100%}
+  .pay-note{font-size:13px;color:var(--muted);margin-top:14px;max-width:780px}
+
+  /* faq */
+  details{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:15px 18px;margin:10px 0;max-width:780px}
+  summary{cursor:pointer;font-weight:700;color:var(--navy);list-style:none;display:flex;justify-content:space-between;gap:12px}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"+";font-size:20px;line-height:1;color:var(--tosca)}
+  details[open] summary::after{content:"\2212"}
+  details p{margin:10px 0 0;color:var(--muted);font-size:14.5px}
+
+  .final{background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;border-radius:22px;padding:44px 28px;text-align:center}
+  .final h2{color:#fff;margin-bottom:10px}
+  .final p{color:#C9D8EF;margin:0 auto 24px;max-width:520px}
+  .final .cta-row{justify-content:center}
+  footer{padding:36px 0 50px;text-align:center;font-size:13px;color:var(--muted)}
+  footer a{margin:0 8px}
+  .fab{position:fixed;right:16px;bottom:16px;z-index:60;display:none;box-shadow:0 10px 24px -8px rgba(0,0,0,.35)}
+  .ios-note{font-size:13.5px;color:var(--muted);margin-top:12px;max-width:520px}
+
+  @media (max-width:860px){
+    nav.links{display:none}
+    .hero .wrap,.flow{grid-template-columns:1fr}
+    .grid3,.fgrid{grid-template-columns:1fr}
+    .plans{grid-template-columns:1fr}
+    .dark{grid-template-columns:1fr}
+    section{padding:48px 0}
+    .fab{display:inline-flex}
+    .cta-row .btn{width:100%}
+    .hero{padding-top:28px}
+    .nav-cta{display:none}
+    header.nav .wrap{justify-content:flex-start}
+  }
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.btn{transition:none}}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="brand">
-    <img src="logo.png" alt="Logo KASIRIN">
-    <div><b>KASIRIN</b><div class="tag">SMART · FAST · EASY</div></div>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="logo" href="#"><img src="logo.png" alt="">KASIRIN</a>
+    <nav class="links">
+      <a href="#masalah">Kenapa KASIRIN</a>
+      <a href="#cara">Cara Kerja</a>
+      <a href="#fitur">Fitur</a>
+      <a href="#harga">Harga</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <a class="btn wa sm nav-cta" href="https://wa.me/628977031194?text=Halo%20kak%2C%20saya%20mau%20tanya%20soal%20KASIRIN." target="_blank" rel="noopener">Chat WhatsApp</a>
   </div>
+</header>
 
-  <h1>Kasir dan pembukuan untuk warung &amp; kafe, langsung dari HP</h1>
-  <p class="lead">Catat penjualan, cetak struk, kelola stok, dan lihat laba rugi otomatis. Tetap jalan tanpa internet.</p>
-
-  <a class="btn" href="https://github.com/anggiadip123-maker/kasirin-download/releases/latest/download/KASIRIN.apk" download>⬇ Download KASIRIN (Android)</a>
-  <div class="meta">File APK &middot; sekitar 4 MB &middot; gratis dipakai</div>
-
-  <ul class="feat">
-    <li><b>Kasir cepat</b> — varian produk, scan barcode, pembayaran Cash / QRIS / Card</li>
-    <li><b>Meja &amp; Atas Nama</b> — pesanan berjalan, bayar di akhir</li>
-    <li><b>Pembukuan otomatis</b> — jurnal, laba rugi, neraca dari setiap transaksi</li>
-    <li><b>Data di HP kamu</b> — tidak butuh server, bisa backup &amp; restore</li>
-  </ul>
-
-  <div class="gallery" aria-label="Tampilan aplikasi">
-    <figure><img src="shots/02-dashboard.jpg" alt="Dashboard penjualan" loading="lazy"><figcaption>Dashboard</figcaption></figure>
-    <figure><img src="shots/03-kasir-meja.jpg" alt="Kasir dengan meja dan atas nama" loading="lazy"><figcaption>Kasir &amp; Meja</figcaption></figure>
-    <figure><img src="shots/04-keranjang.jpg" alt="Keranjang dan metode bayar" loading="lazy"><figcaption>Keranjang</figcaption></figure>
-    <figure><img src="shots/05-struk.jpg" alt="Struk penjualan" loading="lazy"><figcaption>Struk</figcaption></figure>
-    <figure><img src="shots/06-akuntansi.jpg" alt="Pembukuan dan laba rugi" loading="lazy"><figcaption>Pembukuan</figcaption></figure>
-    <figure><img src="shots/01-registrasi.jpg" alt="Registrasi toko" loading="lazy"><figcaption>Daftar toko</figcaption></figure>
+<main>
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <div class="crumb">KASIRIN &nbsp;/&nbsp; Kasir &amp; pembukuan</div>
+      <span class="eyebrow">Warung &middot; Kafe &middot; Resto kecil</span>
+      <h1>Kasir toko yang <em>mencatat sendiri</em> stok, laba, dan utangnya.</h1>
+      <p class="lead">Catat penjualan, cetak struk, dan lihat laba rugi otomatis dari HP. Semuanya jalan tanpa internet, dan datanya tersimpan di HP kamu sendiri.</p>
+      <div class="cta-row">
+        <a class="btn orange lg" href="https://github.com/anggiadip123-maker/kasirin-download/releases/latest/download/KASIRIN.apk" download>&#11015; Download KASIRIN (Android)</a>
+        <a class="btn ghost lg" href="app/">Coba versi web</a>
+      </div>
+      <div class="meta">File APK sekitar 4 MB &middot; gratis dicoba 30 hari</div>
+      <div class="chips">
+        <span class="chip">Tanpa langganan bulanan</span>
+        <span class="chip">Jalan tanpa internet</span>
+        <span class="chip">Struk ke WhatsApp &amp; printer Bluetooth</span>
+      </div>
+      <p class="ios-note">Pengguna iPhone: buka <a href="app/">versi web</a> di Safari, tekan <b>Bagikan</b> lalu <b>Tambah ke Layar Utama</b>. Fitur printer Bluetooth hanya ada di Android.</p>
+    </div>
+    <div class="phone-wrap">
+      <div class="phone"><img src="shots/app-dashboard.jpg" alt="Dashboard KASIRIN: omzet hari ini dan grafik 7 hari" width="540" height="1199"></div>
+    </div>
   </div>
+</section>
 
-  <h2>Cara install</h2>
-  <ol>
-    <li>Tekan tombol <b>Download</b> di atas, lalu buka file yang terunduh</li>
-    <li>Kalau HP menanyakan izin, pilih <b>Izinkan dari sumber ini</b></li>
-    <li>Tekan <b>Install</b>, lalu buka aplikasi KASIRIN</li>
-  </ol>
-  <div class="note">Android menampilkan peringatan untuk semua aplikasi yang dipasang di luar Play Store — itu normal. Aplikasi ini dibuat sendiri oleh pengembangnya dan tidak meminta akses kontak atau lokasi.</div>
+<section id="masalah">
+  <div class="wrap">
+    <span class="eyebrow">Kenapa KASIRIN</span>
+    <h2>Tiga hal yang bikin toko rugi tanpa sadar.</h2>
+    <p class="sub">Bukan karena sepi pembeli, tapi karena catatan yang berantakan. KASIRIN membereskan ketiganya sekaligus.</p>
+    <div class="grid3">
+      <div class="pcard">
+        <span class="tag">Stok</span>
+        <h3>Stok di rak tidak sama dengan catatan</h3>
+        <p>Barang habis baru ketahuan saat pelanggan menanyakan, atau malah menumpuk tanpa terjual.</p>
+        <div class="fix"><span>Dengan KASIRIN</span>Stok berkurang otomatis tiap transaksi, ada peringatan stok menipis dan fitur stok opname.</div>
+      </div>
+      <div class="pcard">
+        <span class="tag">Utang</span>
+        <h3>Utang pelanggan lupa ditagih</h3>
+        <p>Catatan di buku atau chat gampang terlewat, padahal nilainya lama-lama besar.</p>
+        <div class="fix"><span>Dengan KASIRIN</span>Penjualan Tempo tercatat, ada daftar piutang, dan pengingat siap kirim lewat WhatsApp.</div>
+      </div>
+      <div class="pcard">
+        <span class="tag">Laba</span>
+        <h3>Tahu omzet, tapi tidak tahu untung</h3>
+        <p>Uang masuk banyak, tapi setelah modal dan biaya, sisa untungnya tidak jelas.</p>
+        <div class="fix"><span>Dengan KASIRIN</span>Laba rugi, neraca, dan arus kas dibuat otomatis dari setiap transaksi.</div>
+      </div>
+    </div>
+  </div>
+</section>
 
-  <h2 style="margin-top:24px">Pengguna iPhone</h2>
-  <p style="margin:0 0 8px;color:var(--muted)">iPhone tidak bisa memasang APK. Pakai versi web: buka <a href="app/" style="color:var(--orange);font-weight:700">tautan ini di Safari</a>, ketuk tombol <b>Bagikan</b>, lalu pilih <b>Tambah ke Layar Utama</b>. Setelah itu KASIRIN tampil seperti aplikasi biasa.</p>
+<section style="background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <span class="eyebrow">Video demo</span>
+    <h2>Lihat cara kerjanya dulu.</h2>
+    <p class="sub">Contoh transaksi dengan pembayaran gabungan (split), dari pilih produk sampai struk jadi.</p>
+    <div class="video-box"><video controls playsinline preload="none" poster="shots/app-keranjang.jpg"><source src="video/demo-split-bayar-live.webm" type="video/webm">Browser kamu belum mendukung video ini.</video></div>
+  </div>
+</section>
 
-  <h2 style="margin-top:24px">Pertanyaan umum</h2>
-  <details><summary>Apakah data toko saya aman?</summary><p>Data utamanya tersimpan di HP kamu sendiri. Ada juga fitur opsional "Backup Otomatis ke Cloud" (aktif secara default, bisa dimatikan) yang menyimpan cadangan hariannya di server kami untuk jaga-jaga kalau HP hilang/rusak — lihat detailnya di <a href="privacy.html">Kebijakan Privasi</a>. Backup manual di menu User &amp; Setting tetap disarankan rutin.</p></details>
-  <details><summary>Butuh internet?</summary><p>Tidak untuk kasir dan pembukuan. Internet hanya dipakai untuk fitur tambahan seperti impor Excel dan membagikan struk sebagai gambar.</p></details>
-  <details><summary>Bisa cetak struk?</summary><p>Di komputer bisa cetak ke printer apa saja yang terpasang (termasuk printer struk thermal USB). Di HP, tombol Cetak membuka dialog cetak Android — pilih printer Bluetooth kamu di sana kalau sudah dipasangkan/diinstal drivernya. Struk juga bisa dibagikan sebagai gambar ke WhatsApp kapan saja.</p></details>
-  <details><summary>Lupa PIN?</summary><p>Ketuk "Lupa PIN?" di layar masuk dan isi kode pemulihan yang tampil saat pertama daftar.</p></details>
-  <details><summary>Ganti HP, data ikut pindah?</summary><p>Backup di HP lama, lalu Restore di HP baru lewat menu User &amp; Setting.</p></details>
-  <details><summary>Apa bedanya Gratis dan PRO?</summary><p>Gratis bisa dicoba 30 hari dan ada tulisan promosi kecil di struk. PRO Rp75rb sekali bayar: tanpa batas waktu/transaksi dan struk bersih.</p></details>
+<section id="cara">
+  <div class="wrap flow">
+    <div>
+      <span class="eyebrow">Cara kerja</span>
+      <h2>Dari buka toko sampai tutup buku.</h2>
+      <p class="sub">Satu alur sederhana yang sama tiap hari. Tidak perlu paham akuntansi.</p>
+      <a class="btn navy" href="panduan/Panduan-Memulai-KASIRIN.docx" download>Unduh panduan memulai (Word)</a>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><div><b>Buka shift &amp; isi modal awal</b><span>Catat uang di laci supaya selisih kas ketahuan saat tutup.</span></div></div>
+      <div class="step"><div class="n">2</div><div><b>Catat penjualan</b><span>Ketuk produk atau scan barcode. Kafe bisa buka pesanan per meja atau atas nama.</span></div></div>
+      <div class="step"><div class="n">3</div><div><b>Terima pembayaran</b><span>Cash, QRIS, Card, Tempo, atau gabungan. Stok dan jurnal tercatat sendiri.</span></div></div>
+      <div class="step"><div class="n">4</div><div><b>Cetak atau kirim struk</b><span>Printer Bluetooth, simpan sebagai gambar, atau langsung kirim ke WhatsApp pelanggan.</span></div></div>
+      <div class="step"><div class="n">5</div><div><b>Tutup shift &amp; cek laporan</b><span>Lihat omzet, laba rugi, dan produk terlaris. Laporan harian bisa dikirim ke WhatsApp-mu.</span></div></div>
+    </div>
+  </div>
+</section>
 
-  <h2 style="margin-top:24px">Upgrade PRO</h2>
-  <p style="margin:0;color:var(--muted)">Versi gratis bisa dicoba 30 hari. PRO Rp75rb sekali bayar, tanpa batas waktu/transaksi. Hubungi
-    <a href="https://wa.me/628977031194?text=Halo%20kak%2C%20saya%20mau%20upgrade%20KASIRIN%20PRO" style="color:var(--orange);font-weight:700">WhatsApp 0897-7031-194</a>.</p>
+<section id="fitur" style="background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <span class="eyebrow">Fitur</span>
+    <h2>Yang khusus dibuat untuk warung &amp; kafe.</h2>
+    <p class="sub">Lengkap untuk jualan sehari-hari, tapi tetap ringan dan mudah dipakai kasir baru.</p>
+    <div class="fgrid">
+      <div class="fcard"><div class="ic">&#128722;</div><b>Kasir cepat</b><span>Varian produk, scan barcode, diskon, pajak, dan service charge.</span></div>
+      <div class="fcard"><div class="ic">&#127869;</div><b>Meja &amp; Atas Nama</b><span>Pesanan berjalan, tambah bertahap, bayar di akhir.</span></div>
+      <div class="fcard"><div class="ic">&#128241;</div><b>QRIS di layar bayar</b><span>Tampilkan QRIS tokomu langsung saat pelanggan membayar.</span></div>
+      <div class="fcard"><div class="ic">&#128230;</div><b>Stok &amp; stok opname</b><span>Stok berkurang otomatis, selisih hitungan tercatat sebagai jurnal.</span></div>
+      <div class="fcard"><div class="ic">&#128202;</div><b>Pembukuan otomatis</b><span>Jurnal, buku besar, laba rugi, neraca, dan arus kas.</span></div>
+      <div class="fcard"><div class="ic">&#128101;</div><b>Banyak pengguna</b><span>Admin, Supervisor, dan Kasir dengan PIN masing-masing.</span></div>
+    </div>
+    <div class="dark">
+      <h3>Juga termasuk</h3>
+      <ul>
+        <li>Mata Bos: pantau omzet dari HP lain</li>
+        <li>Katalog Online + pesanan masuk ke kasir</li>
+        <li>Poster promo siap bagikan</li>
+        <li>Pengingat piutang lewat WhatsApp</li>
+      </ul>
+      <ul>
+        <li>Printer thermal Bluetooth (58 &amp; 80 mm)</li>
+        <li>Import produk dari Excel</li>
+        <li>Retur &amp; refund dengan jurnal balik</li>
+        <li>Backup &amp; restore data</li>
+      </ul>
+    </div>
+  </div>
+</section>
 
-  <footer>&copy; KASIRIN &middot; <a href="privacy.html">Kebijakan Privasi</a></footer>
-</div>
+<section>
+  <div class="wrap">
+    <span class="eyebrow">Tampilan aplikasi</span>
+    <h2>Sederhana, tidak bikin pusing.</h2>
+    <p class="sub">Geser untuk melihat layar lainnya.</p>
+    <div class="gallery">
+      <figure><img src="shots/app-daftar.jpg" alt="Layar pendaftaran toko" width="540" height="1199"><figcaption>Daftar toko</figcaption></figure>
+      <figure><img src="shots/app-kasir.jpg" alt="Layar kasir" width="540" height="1199"><figcaption>Kasir</figcaption></figure>
+      <figure><img src="shots/app-keranjang.jpg" alt="Keranjang dan pembayaran" width="540" height="1199"><figcaption>Pembayaran</figcaption></figure>
+      <figure><img src="shots/app-struk.jpg" alt="Struk transaksi" width="540" height="1199"><figcaption>Struk</figcaption></figure>
+      <figure><img src="shots/app-akuntansi.jpg" alt="Laporan laba rugi" width="540" height="1199"><figcaption>Laba rugi</figcaption></figure>
+      <figure><img src="shots/app-poster.jpg" alt="Poster promo" width="540" height="1199"><figcaption>Poster promo</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="harga" style="background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <span class="eyebrow">Sewa vs beli</span>
+    <h2>Jangan terjebak bayar sewa kasir tiap bulan.</h2>
+    <p class="sub">Kasir adalah alat yang dipakai setiap hari, jadi biayanya sebaiknya sekali saja.</p>
+    <div class="scroll-x">
+      <table class="cmp">
+        <thead><tr><th></th><th>Aplikasi kasir berlangganan</th><th>KASIRIN PRO</th></tr></thead>
+        <tbody>
+          <tr><td>Biaya</td><td>Bayar terus tiap bulan</td><td>Rp75.000 sekali bayar</td></tr>
+          <tr><td>Kalau berhenti bayar</td><td>Fitur dikunci</td><td>Tetap bisa dipakai selamanya</td></tr>
+          <tr><td>Butuh internet</td><td>Biasanya ya</td><td>Tidak, jalan offline</td></tr>
+          <tr><td>Data toko</td><td>Di server penyedia</td><td>Di HP kamu sendiri</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note-calc">Contoh hitungan: langganan Rp100.000 per bulan = Rp1.200.000 per tahun. Angka ini hanya ilustrasi, bukan harga aplikasi tertentu.</p>
+
+    <div class="plans">
+      <div class="plan">
+        <h3>Gratis</h3>
+        <div class="price">Rp0 <small>30 hari</small></div>
+        <ul><li>Semua fitur dipakai penuh</li><li>Tulisan promosi kecil di struk</li><li>Data tetap bisa dibuka setelah masa coba</li></ul>
+        <a class="btn ghost" href="https://github.com/anggiadip123-maker/kasirin-download/releases/latest/download/KASIRIN.apk" download>Download &amp; coba</a>
+      </div>
+      <div class="plan pro">
+        <span class="badge">PALING DIPILIH</span>
+        <h3>PRO</h3>
+        <div class="price">Rp75.000 <small>sekali bayar</small></div>
+        <ul><li>Transaksi tanpa batas waktu</li><li>Struk bersih tanpa tulisan promosi</li><li>Berlaku selamanya, tanpa langganan</li></ul>
+        <a class="btn orange" href="https://wa.me/628977031194?text=Halo%20kak%2C%20saya%20mau%20upgrade%20KASIRIN%20PRO%20Rp75rb%20Lifetime." target="_blank" rel="noopener">Beli PRO via WhatsApp</a>
+      </div>
+    </div>
+    <p class="pay-note">Pembayaran lewat DANA atau QRIS. Kode aktivasi dikirim setelah pembayaran dikonfirmasi, dan berlaku untuk semua perangkat dengan Nama Toko yang sama.</p>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <span class="eyebrow">FAQ</span>
+    <h2>Pertanyaan yang sering muncul.</h2>
+    <details><summary>Apakah butuh internet?</summary><p>Tidak untuk kasir dan pembukuan. Internet hanya dipakai untuk unduh aplikasi dan fitur opsional seperti Mata Bos, Katalog Online, dan backup cloud.</p></details>
+    <details><summary>Di mana data tokoku disimpan?</summary><p>Di HP kamu sendiri, tidak ada akun dan tidak ada server untuk data toko. Karena itu lakukan Backup Data secara rutin dan simpan Kode Pemulihan PIN.</p></details>
+    <details><summary>Bagaimana kalau ganti HP atau HP hilang?</summary><p>Di HP lama tekan Backup Data dan kirim berkasnya ke diri sendiri. Di HP baru pasang KASIRIN lalu pilih Pulihkan dari Backup. Kalau tidak ada backup, data tidak bisa dikembalikan.</p></details>
+    <details><summary>Bisa untuk lebih dari satu HP?</summary><p>Bisa dipasang di beberapa HP. Data tiap HP terpisah. Untuk memantau omzet dari HP lain, aktifkan fitur Mata Bos lalu bagikan link pantau ke pemilik.</p></details>
+    <details><summary>Printer apa yang didukung?</summary><p>Printer thermal Bluetooth ukuran 58 mm dan 80 mm yang menggunakan perintah ESC/POS, yang umum dijual untuk kasir. Struk juga bisa dikirim sebagai gambar ke WhatsApp tanpa printer.</p></details>
+    <details><summary>Apakah ada versi iPhone?</summary><p>Belum ada aplikasi iPhone. Versi web bisa dipakai di Safari dan ditambahkan ke layar utama, tetapi fitur printer Bluetooth hanya tersedia di Android.</p></details>
+    <details><summary>Bagaimana cara membeli PRO?</summary><p>Tekan Beli PRO via WhatsApp, bayar lewat DANA atau QRIS, lalu kode aktivasi dikirim. Masukkan kode itu di Pengaturan &rarr; Kode Lisensi PRO.</p></details>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <div class="final">
+      <h2>Coba gratis 30 hari, tanpa kartu kredit.</h2>
+      <p>Pasang di HP, isi beberapa produk, dan catat transaksi pertamamu hari ini.</p>
+      <div class="cta-row">
+        <a class="btn orange lg" href="https://github.com/anggiadip123-maker/kasirin-download/releases/latest/download/KASIRIN.apk" download>&#11015; Download KASIRIN</a>
+        <a class="btn wa lg" href="https://wa.me/628977031194?text=Halo%20kak%2C%20saya%20mau%20tanya%20soal%20KASIRIN." target="_blank" rel="noopener">Tanya via WhatsApp</a>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<a class="btn wa fab" href="https://wa.me/628977031194?text=Halo%20kak%2C%20saya%20mau%20tanya%20soal%20KASIRIN." target="_blank" rel="noopener">Chat WhatsApp</a>
+
+<footer>
+  <div class="wrap">
+    <div><a href="app/">Versi web</a> &middot; <a href="panduan/Panduan-Memulai-KASIRIN.docx" download>Panduan</a> &middot; <a href="privacy.html">Kebijakan Privasi</a></div>
+    <div style="margin-top:8px">&copy; KASIRIN &mdash; kasir &amp; pembukuan untuk warung &amp; kafe</div>
+  </div>
+</footer>
+
 </body>
 </html>
