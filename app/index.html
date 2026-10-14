@@ -983,7 +983,7 @@
           <p style="color:var(--muted);font-size:11.5px;margin:6px 0 0">"Kosongkan Riwayat Transaksi" menghapus semua penjualan, retur, kas, dan pembukuan — tapi produk, pengguna, dan pengaturan toko tetap ada. Cocok dipakai sekali sebelum mulai transaksi sungguhan, setelah selesai coba-coba.</p>
           <p id="lastBackupInfo" style="color:var(--muted);font-size:12px;margin:10px 0 0"></p>
           <div class="acc-bar" style="margin-top:14px"><div class="section-title" style="margin:0;font-size:13px">Backup Otomatis ke Cloud</div></div>
-          <div class="toggle" style="margin-top:8px"><button class="switch" id="cloudBackupSwitch" type="button"></button><span>Aktifkan backup otomatis (butuh internet)</span></div>
+          <div class="toggle" style="margin-top:8px"><button class="switch" id="cloudBackupSwitch" type="button"></button><span>Aktifkan backup otomatis (nonaktif secara default, butuh internet)</span></div>
           <p style="color:var(--muted);font-size:11.5px;margin:6px 0 0"><strong>Penting:</strong> kalau aktif, seluruh data toko (produk, transaksi, laporan keuangan) otomatis dikirim &amp; tersimpan di Google Drive milik penjual/pengembang KASIRIN setiap hari — bukan Drive milikmu sendiri. Ini dipakai sebagai cadangan darurat kalau kamu lupa backup manual dan HP hilang/rusak. Matikan kalau tidak ingin data toko tersimpan di luar HP ini.</p>
           <div class="row-flex" style="margin-top:10px"><button class="btn sm" id="cloudRestoreBtn" type="button">☁️ Pulihkan dari Cloud</button></div>
           <p id="lastCloudBackupInfo" style="color:var(--muted);font-size:12px;margin:8px 0 0"></p>
@@ -2862,7 +2862,7 @@
     $("#setTableCount").value = s.tableCount==null?8:s.tableCount;
     $("#themeSwitch").classList.toggle("on", curTheme()==="dark");
     $$("#setDeviceMode .device-mode-opt").forEach(b=>b.classList.toggle("active", b.dataset.mode===(s.kasirMode||"hp")));
-    $("#cloudBackupSwitch").classList.toggle("on", s.cloudBackupEnabled!==false);
+    $("#cloudBackupSwitch").classList.toggle("on", s.cloudBackupEnabled===true);
     $("#mataBosSwitch").classList.toggle("on", !!s.mataBosEnabled);
     renderMataBosLink();
     $("#katalogSwitch").classList.toggle("on", !!s.katalogEnabled);
@@ -3191,7 +3191,7 @@
   let cloudBackupInFlight=false;
   async function cloudBackupIfDue(){
     if(cloudBackupInFlight) return;
-    if(S.settings.cloudBackupEnabled===false) return;
+    if(S.settings.cloudBackupEnabled!==true) return;
     if(!S.settings.store) return;
     if(navigator.onLine===false) return;
     const last=localStorage.getItem("kasirpro.lastCloudBackup");
@@ -3221,9 +3221,18 @@
     }catch(e){ toast("Gagal terhubung ke server backup","bad"); }
   }
   $("#cloudBackupSwitch").addEventListener("click",()=>{
-    const on=$("#cloudBackupSwitch").classList.toggle("on");
-    S.settings.cloudBackupEnabled=on; save();
-    toast(on?"Backup otomatis ke cloud diaktifkan":"Backup otomatis ke cloud dimatikan","good");
+    if(S.settings.cloudBackupEnabled===true){
+      $("#cloudBackupSwitch").classList.remove("on");
+      S.settings.cloudBackupEnabled=false; save();
+      toast("Backup otomatis ke cloud dimatikan","good");
+      return;
+    }
+    confirmAsk("Aktifkan backup otomatis ke cloud? Seluruh data toko kamu (produk, transaksi, pembukuan, dan pengaturan) akan dikirim sekali sehari ke Google Drive milik pengembang KASIRIN sebagai cadangan darurat. Data tidak dipakai untuk hal lain dan tidak dibagikan ke pihak ketiga. Kamu bisa mematikannya kapan saja.",()=>{
+      $("#cloudBackupSwitch").classList.add("on");
+      S.settings.cloudBackupEnabled=true; save();
+      toast("Backup otomatis ke cloud diaktifkan","good");
+      cloudBackupIfDue();
+    },"Ya, Aktifkan");
   });
   $("#cloudRestoreBtn").addEventListener("click",()=>cloudRestore());
   $("#mataBosSwitch").addEventListener("click",()=>{
