@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mata Bos</title>
+<meta name="description" content="Pantau omzet &amp; transaksi toko secara real-time.">
+<link rel="icon" type="image/png" href="../icon.png">
+<style>
+  :root{--navy:#0F2C56;--orange:#FF7A00;--tosca:#00C2A8;--bg:#F6F8FB;--ink:#101828;--muted:#5B6678;--line:#E2E7EF;--card:#fff;--good:#16A34A;--bad:#DC2626}
+  @media (prefers-color-scheme:dark){:root{--bg:#0B1220;--ink:#EEF2F8;--muted:#9AA7BA;--line:#22304A;--card:#121B2E}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5;padding-bottom:30px}
+  header.top{background:linear-gradient(135deg,var(--navy),#163d78);color:#fff;padding:22px 18px 30px}
+  header.top .brand{display:flex;align-items:center;gap:10px;font-size:11px;letter-spacing:.18em;font-weight:700;color:var(--tosca);text-transform:uppercase;margin-bottom:10px}
+  header.top h1{margin:0 0 6px;font-size:clamp(20px,5.5vw,26px);line-height:1.2}
+  header.top .meta{font-size:13px;opacity:.85}
+  .wrap{max-width:560px;margin:0 auto;padding:0 16px}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:-18px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 14px;box-shadow:0 8px 24px rgba(16,24,40,.06)}
+  .kpi .lbl{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  .kpi .val{font-size:clamp(20px,6vw,26px);font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums}
+  @media (prefers-color-scheme:dark){.kpi .val{color:var(--tosca)}}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-top:16px;overflow:hidden}
+  .panel .phead{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line)}
+  .panel .phead .ptitle{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:7px}
+  .dot{width:7px;height:7px;border-radius:999px;background:var(--line);flex:none}
+  .dot.live{background:var(--good);box-shadow:0 0 0 3px rgba(22,163,74,.18);animation:pulse 1.6s infinite}
+  .dot.err{background:var(--bad)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .status{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px}
+  .status.good{background:rgba(22,163,74,.12);color:var(--good)}
+  .status.bad{background:rgba(220,38,38,.12);color:var(--bad)}
+  .status.wait{background:var(--line);color:var(--muted)}
+  .feed{max-height:420px;overflow-y:auto}
+  .frow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px}
+  .frow:last-child{border-bottom:0}
+  .frow .l{min-width:0}
+  .frow .l .t{font-weight:700;font-size:13.5px}
+  .frow .l .m{color:var(--muted);font-size:11.5px;margin-top:2px;display:flex;gap:6px;align-items:center}
+  .frow .r{font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .pill{font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+  .empty{text-align:center;color:var(--muted);padding:34px 16px;font-size:13px}
+  .state{text-align:center;padding:70px 20px;color:var(--muted);font-size:14px}
+  footer.pw{text-align:center;padding:26px 16px 6px;font-size:11.5px;color:var(--muted)}
+  footer.pw a{color:inherit;font-weight:700}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="state" id="stateMsg">Memuat…</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script>
+(function(){
+  "use strict";
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyBjRXZkhWpl-3VVpGm63qfm8huxgDnWnic",
+    authDomain: "kasirin-ac135.firebaseapp.com",
+    projectId: "kasirin-ac135",
+    storageBucket: "kasirin-ac135.firebasestorage.app",
+    messagingSenderId: "275404503053",
+    appId: "1:275404503053:web:78d807d271aa203556bd44",
+    measurementId: "G-7HBEPPY3W7"
+  };
+  const $ = (s,el=document)=>el.querySelector(s);
+  const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const rp = n => "Rp"+Math.round(n||0).toLocaleString("id-ID");
+  const todayStr = () => new Date().toISOString().slice(0,10);
+
+  const params = new URLSearchParams(location.search);
+  const storeKey = (params.get("toko")||"").trim().toUpperCase().replace(/[^A-Z0-9]+/g,"");
+
+  function showState(msg){ $("#app").innerHTML = `<div class="state">${msg}</div>`; }
+
+  if(!storeKey){
+    showState("Link pantau tidak lengkap. Minta link yang benar dari pemilik toko ya.");
+    return;
+  }
+
+  function renderShell(storeName){
+    $("#app").innerHTML = `
+      <header class="top">
+        <div class="wrap">
+          <div class="brand">👁️ Mata Bos</div>
+          <h1>${esc(storeName||"Toko")}</h1>
+          <div class="meta">Pantau omzet &amp; transaksi hari ini secara real-time</div>
+        </div>
+      </header>
+      <div class="wrap">
+        <div class="cards">
+          <div class="kpi"><div class="lbl">Omzet Hari Ini</div><div class="val" id="kOmzet">Rp0</div></div>
+          <div class="kpi"><div class="lbl">Jumlah Transaksi</div><div class="val" id="kCount">0</div></div>
+        </div>
+        <div class="panel">
+          <div class="phead">
+            <div class="ptitle"><span class="dot" id="liveDot"></span>Transaksi Real-time</div>
+            <span class="status wait" id="statusPill">Menghubungkan…</span>
+          </div>
+          <div class="feed" id="feed"><div class="empty">Menunggu data…</div></div>
+        </div>
+      </div>
+      <footer class="pw">Dibuat dengan <a href="https://anggiadip123-maker.github.io/kasirin-download/" target="_blank" rel="noopener">KASIRIN</a> — aplikasi kasir &amp; pembukuan untuk warung &amp; kafe</footer>
+    `;
+  }
+
+  function setStatus(kind, label){
+    const pill=$("#statusPill"), dot=$("#liveDot");
+    if(!pill||!dot) return;
+    pill.className = "status " + (kind==="good"?"good":kind==="bad"?"bad":"wait");
+    pill.textContent = label;
+    dot.className = "dot " + (kind==="good"?"live":kind==="bad"?"err":"");
+  }
+
+  function renderFeed(rows){
+    const el=$("#feed"); if(!el) return;
+    el.innerHTML = rows.length ? rows.map(t=>{
+      const dt = t.time ? new Date(t.time) : null;
+      const jam = dt ? dt.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"}) : "--.--";
+      return `<div class="frow">
+        <div class="l">
+          <div class="t">${esc(t.cashier||"Kasir")}</div>
+          <div class="m">${jam} <span class="pill">${esc(t.method||"-")}</span></div>
+        </div>
+        <div class="r">${rp(t.total)}</div>
+      </div>`;
+    }).join("") : `<div class="empty">Belum ada transaksi hari ini</div>`;
+  }
+
+  let unsubs=[];
+  function detach(){ unsubs.forEach(u=>{ try{u();}catch(e){} }); unsubs=[]; }
+
+  async function connect(db){
+    detach();
+    const ref = db.collection("toko").doc(storeKey);
+    unsubs.push(ref.onSnapshot(snap=>{
+      const d = snap.exists ? (snap.data()||{}) : {};
+      if(d.nama && document.title.indexOf(d.nama)===-1) {
+        document.title = d.nama + " — Mata Bos";
+        const h1=$("h1"); if(h1 && h1.textContent!==d.nama) h1.textContent = d.nama;
+      }
+      const sameDay = d.omzetTanggal===todayStr();
+      $("#kOmzet").textContent = rp(sameDay?(d.omzetHariIni||0):0);
+      $("#kCount").textContent = String(sameDay?(d.omzetCount||0):0);
+      setStatus("good","Terhubung");
+    }, ()=>{ setStatus("bad","Gagal terhubung"); }));
+    unsubs.push(ref.collection("transaksi").orderBy("time","desc").limit(20).onSnapshot(snap=>{
+      const rows=[]; snap.forEach(doc=>rows.push(doc.data()));
+      renderFeed(rows);
+    }, ()=>{}));
+  }
+
+  async function load(){
+    try{
+      renderShell(storeKey);
+      firebase.initializeApp(FIREBASE_CONFIG);
+      const db = firebase.firestore();
+      await firebase.auth().signInAnonymously();
+      await connect(db);
+    }catch(e){
+      showState("Gagal memuat Mata Bos. Cek koneksi internet lalu muat ulang halaman.");
+    }
+  }
+  load();
+})();
+</script>
+</body>
+</html>
