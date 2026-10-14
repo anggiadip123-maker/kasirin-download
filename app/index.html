@@ -941,6 +941,7 @@
         </div>
         <div class="card card-p help" style="grid-column:1/-1">
           <div class="section-title">Bantuan &amp; panduan</div>
+          <p id="appModeInfo" style="color:var(--muted);font-size:12px;margin:0 0 8px"></p>
           <details open><summary>Mulai cepat: dari nol sampai transaksi pertama</summary>
             <ol>
               <li><b>Produk &amp; Stok</b> &rarr; <b>Tambah Produk</b> (nama, harga, stok). Punya banyak produk? Pakai <b>Import Excel</b>.</li>
@@ -1342,6 +1343,7 @@
 
   /* ---------------- Toast + Modal ---------------- */
   function toast(msg,kind){
+    for(const el of $("#toastWrap").children){ if(el.textContent===msg) return; }
     const t=document.createElement("div");
     t.className="toast"+(kind?" "+kind:"");
     t.textContent=msg;
@@ -1698,10 +1700,22 @@
       ${checkPro()?"":'<div class="r-c" style="margin-top:8px;font-size:10px;opacity:.6">Dibuat dengan KASIRIN — upgrade ke PRO untuk hapus tulisan ini</div>'}
     </div>`;
   }
-  const nativePrintPlugin = (window.Capacitor && window.Capacitor.registerPlugin) ? window.Capacitor.registerPlugin("NativePrint") : null;
-  const saveFilePlugin = (window.Capacitor && window.Capacitor.registerPlugin) ? window.Capacitor.registerPlugin("SaveFile") : null;
-  const billingPlugin = (window.Capacitor && window.Capacitor.registerPlugin) ? window.Capacitor.registerPlugin("KasirinBilling") : null;
-  const btPrintPlugin = (window.Capacitor && window.Capacitor.registerPlugin) ? window.Capacitor.registerPlugin("BtPrint") : null;
+  // Aplikasi satu-file ini tidak memuat runtime inti Capacitor, jadi Capacitor.registerPlugin
+  // TIDAK ada di APK. Plugin dipanggil langsung lewat nativePromise bawaan native bridge.
+  function nativePlugin(name){
+    const cap=window.Capacitor;
+    if(!cap) return null;
+    if(typeof cap.registerPlugin==="function"){ try{ return cap.registerPlugin(name); }catch(e){} }
+    if(cap.Plugins && cap.Plugins[name]) return cap.Plugins[name];
+    if(typeof cap.nativePromise==="function"){
+      return new Proxy({},{ get:(_,method)=> method==="then" ? undefined : (opts)=>cap.nativePromise(name,String(method),opts||{}) });
+    }
+    return null;
+  }
+  const nativePrintPlugin = nativePlugin("NativePrint");
+  const saveFilePlugin = nativePlugin("SaveFile");
+  const billingPlugin = nativePlugin("KasirinBilling");
+  const btPrintPlugin = nativePlugin("BtPrint");
   // Diinstal dari Play Store wajib pakai Google Play Billing (kebijakan Google), selain itu
   // (APK langsung/website) tetap pakai alur DANA/WhatsApp manual yang sudah ada.
   let isPlayInstallCache = null;
@@ -2867,6 +2881,7 @@
     $("#cloudBackupSwitch").classList.toggle("on", s.cloudBackupEnabled===true);
     $("#mataBosSwitch").classList.toggle("on", !!s.mataBosEnabled);
     renderMataBosLink();
+    $("#appModeInfo").textContent = "Mode: " + (btPrintPlugin ? "Aplikasi Android (APK)" : "Browser / Web") + " · Fitur native (printer Bluetooth, simpan ke galeri, WhatsApp) " + (btPrintPlugin ? "aktif" : "tidak tersedia");
     $("#katalogSwitch").classList.toggle("on", !!s.katalogEnabled);
     renderKatalogLink();
     $("#btPrinterSwitch").classList.toggle("on", !!s.useBtPrinter);
