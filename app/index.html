@@ -1144,9 +1144,26 @@
   const LICENSE_SECRET = "SAGOF99";
   const UPGRADE_WA_NUMBER = "628977031194";
   const UPGRADE_LOG_URL = "https://script.google.com/macros/s/AKfycbye6IHwnpUS0bUWwIoDhAMiyz8T9Qu1aXB1kjG05CehQULfOPGK5Aw0oQnH4O73O3Ny/exec";
+  function deviceId(){
+    let d=null; try{ d=localStorage.getItem("kasirin_device"); }catch(e){}
+    if(!d){
+      const a=new Uint8Array(10); (window.crypto||window.msCrypto).getRandomValues(a);
+      d=Array.from(a,b=>"abcdefghjkmnpqrstuvwxyz23456789"[b%31]).join("");
+      try{ localStorage.setItem("kasirin_device",d); }catch(e){}
+    }
+    return d;
+  }
+  // Tanggal efektif: kalau jam HP dimundurkan, tetap pakai tanggal terjauh yang pernah dilihat aplikasi.
+  function effToday(){
+    const t=todayStr(); let m="";
+    try{ m=localStorage.getItem("kasirin_maxseen")||""; }catch(e){}
+    if(m>t) return m;
+    if(m!==t){ try{ localStorage.setItem("kasirin_maxseen",t); }catch(e){} }
+    return t;
+  }
   function trialDaysLeft(){
     const end=addDays(S.trialStart||todayStr(),FREE_TRIAL_DAYS);
-    return dayDiff(end,todayStr());
+    return dayDiff(end,effToday());
   }
   function trialExpired(){ return trialDaysLeft()<=0; }
   function getStoreLicenseKey(){
@@ -1778,7 +1795,7 @@
       await billingPlugin.purchasePro();
       const storeKey=getStoreLicenseKey();
       if(!storeKey){ toast("Isi Nama Toko dulu di Profil Toko","bad"); return; }
-      localStorage.setItem("kasirin_license", generateLicense(storeKey));
+      localStorage.setItem("kasirin_license", generateLicense(storeKey)); localStorage.setItem("kasirin_license_src","play");
       audit("Aktivasi lisensi PRO","lewat Google Play Billing");
       toast("KASIRIN PRO aktif! Terima kasih","good");
       renderLicense(); renderLimitNag();
@@ -1791,7 +1808,7 @@
       if(!r.purchased){ toast("Tidak ditemukan pembelian PRO sebelumnya di akun Google Play ini","bad"); return; }
       const storeKey=getStoreLicenseKey();
       if(!storeKey){ toast("Isi Nama Toko dulu di Profil Toko","bad"); return; }
-      localStorage.setItem("kasirin_license", generateLicense(storeKey));
+      localStorage.setItem("kasirin_license", generateLicense(storeKey)); localStorage.setItem("kasirin_license_src","play");
       audit("Aktivasi lisensi PRO","dipulihkan dari Google Play");
       toast("PRO dipulihkan! Terima kasih","good");
       renderLicense(); renderLimitNag();
@@ -3124,6 +3141,7 @@
     go("dashboard");
     toast("Selamat datang, "+store,"good");
     setTimeout(issueRecoveryCode,400);
+    setTimeout(()=>syncTrial(true),1200);
   }
   $("#suBtn").addEventListener("click",doSetup);
   ["suStore","suPhone","suPin","suPin2"].forEach(id=>$("#"+id).addEventListener("keydown",e=>{ if(e.key==="Enter") doSetup(); }));
@@ -3473,9 +3491,67 @@
     for(let i=0;i<k.length;i++) h=(h*31+k.charCodeAt(i))%900;
     return PAY_BASE+100+h;
   }
+  /* ---- Server masa coba & batas perangkat (butuh Apps Script v5; kalau belum, dilewati diam-diam) ---- */
+  let serverV5Cache=null;
+  async function serverV5(){
+    if(serverV5Cache!==null) return serverV5Cache;
+    try{ const r=await fetch(UPGRADE_LOG_URL); const j=await r.json(); serverV5Cache=!!(j&&j.versi>=5); }
+    catch(e){ return false; }
+    return serverV5Cache;
+  }
+  async function postServer(body){
+    const r=await fetch(UPGRADE_LOG_URL,{method:"POST",body:JSON.stringify(body)});
+    return await r.json();
+  }
+  async function syncTrial(force){
+    try{
+      if(navigator.onLine===false || !S.setupDone) return;
+      const store=getStoreLicenseKey(); if(!store || checkPro()) return;
+      const tag=todayStr()+"|"+store;
+      if(!force && localStorage.getItem("kasirin_trialsync")===tag) return;
+      if(!(await serverV5())) return;
+      const j=await postServer({action:"trial",namaToko:S.settings.store,deviceId:deviceId(),mulai:S.trialStart||""});
+      if(!j || j.result!=="ok" || !j.mulai) return;
+      localStorage.setItem("kasirin_trialsync",tag);
+      if(j.sekarang) localStorage.setItem("kasirin_maxseen",j.sekarang);
+      if(j.mulai < (S.trialStart||"9999-12-31")){ S.trialStart=j.mulai; save(); }
+      try{ renderLimitNag(); renderLicense(); }catch(e){}
+    }catch(e){}
+  }
+  async function serverActivate(key){
+    try{
+      if(navigator.onLine===false) return "offline";
+      if(!(await serverV5())) return "skip";
+      const j=await postServer({action:"activate",namaToko:S.settings.store,kode:key,deviceId:deviceId()});
+      return (j&&j.result)||"offline";
+    }catch(e){ return "offline"; }
+  }
+  async function verifyLicenseWeekly(){
+    try{
+      if(!checkPro()) return;
+      if(localStorage.getItem("kasirin_license_src")==="play") return;
+      const last=localStorage.getItem("kasirin_lastverify")||"";
+      if(last && dayDiff(todayStr(),last)<7) return;
+      const r=await serverActivate(localStorage.getItem("kasirin_license"));
+      if(r==="ok"){ localStorage.setItem("kasirin_lastverify",todayStr()); }
+      else if(r==="dicabut" || r==="limit"){
+        localStorage.removeItem("kasirin_license");
+        toast(r==="dicabut"?"Lisensi PRO dicabut. Hubungi penjual.":"Lisensi PRO ini sudah dipakai di 3 perangkat lain. Hubungi penjual.","bad");
+        try{ renderLicense(); renderLimitNag(); }catch(e){}
+      }
+    }catch(e){}
+  }
+  function activationMsg(r){
+    if(r==="limit") return "Kode ini sudah dipakai di 3 perangkat (batas maksimal). Hubungi penjual kalau perlu menambah.";
+    if(r==="dicabut") return "Kode lisensi ini sudah dicabut. Hubungi penjual.";
+    if(r==="offline") return "Butuh internet untuk aktivasi. Sambungkan internet lalu coba lagi.";
+    return "Kode lisensi tidak valid untuk Nama Toko ini";
+  }
   async function activateFromCode(key){
     const storeKey=getStoreLicenseKey();
     if(!storeKey||key!==generateLicense(storeKey)) return false;
+    const sr=await serverActivate(key);
+    if(sr!=="ok" && sr!=="skip" && sr!=="offline"){ toast(activationMsg(sr),"bad"); return false; }
     localStorage.setItem("kasirin_license",key);
     audit("Aktivasi lisensi PRO","Toko "+S.settings.store+" (otomatis)");
     renderLicense(); renderLimitNag();
@@ -3535,13 +3611,17 @@
     const ok=await copyText($("#upgradeMsg").value);
     toast(ok?"Pesan disalin, kirim lewat WhatsApp":"Gagal menyalin, salin manual", ok?"good":"bad");
   });
-  $("#activateLicenseBtn").addEventListener("click",()=>{
+  $("#activateLicenseBtn").addEventListener("click",async()=>{
     const key=$("#licenseKeyInput").value.trim();
     if(!key){ toast("Isi kode lisensi dulu","bad"); return; }
     const storeKey=getStoreLicenseKey();
     if(!storeKey){ toast("Isi Nama Toko dulu di Profil Toko sebelum aktivasi","bad"); return; }
     if(key!==generateLicense(storeKey)){ toast("Kode lisensi tidak valid untuk Nama Toko ini","bad"); return; }
+    toast("Memeriksa kode...");
+    const sr=await serverActivate(key);
+    if(sr!=="ok" && sr!=="skip"){ toast(activationMsg(sr),"bad"); return; }
     localStorage.setItem("kasirin_license", key);
+    try{ localStorage.setItem("kasirin_lastverify",todayStr()); localStorage.removeItem("kasirin_license_src"); }catch(e){}
     audit("Aktivasi lisensi PRO","Toko "+S.settings.store);
     toast("KASIRIN PRO aktif! Terima kasih","good");
     renderLicense();
@@ -4687,6 +4767,7 @@
   /* ================= Init ================= */
   load(); applyTheme(); applyChrome(); applyKasirMode();
   tick(); setInterval(tick,1000);
+  setTimeout(()=>{ syncTrial(); verifyLicenseWeekly(); },3000);
   window.addEventListener("hashchange",()=>{ const v=location.hash.slice(1); if(renderers[v]) go(v); });
   if(currentUser()){
     applyAccess();
