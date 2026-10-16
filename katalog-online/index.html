@@ -257,12 +257,21 @@
     // generik (itu cuma buka menu pilih kontak sendiri, bukan ke toko), makanya tombolnya
     // dinonaktifkan dari awal kalau toko belum isi nomor, daripada diam-diam salah sasaran.
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
-    // Dibuka SEGERA/sinkron (bukan setelah await) supaya tidak diblokir popup blocker browser.
-    // Pesan WA adalah jalur utama yang HARUS selalu terkirim; simpan ke Firestore di bawah ini
-    // cuma pelengkap (biar kasir bisa auto-isi keranjang), jadi dibuat fire-and-forget --
-    // kalaupun gagal/offline, pesanan via WA tetap jalan seperti biasa.
-    window.open(url, "_blank");
-    savePesananOnline(nama, items, orderTipe);
+    // Urutan penting di HP: pesanan disimpan ke Firestore DULU (maks. ~3 detik), baru WhatsApp dibuka.
+    // Kalau WhatsApp dibuka lebih dulu, browser HP langsung berpindah ke aplikasi WA dan proses simpan
+    // sering terhenti -- akibatnya pesanan tidak pernah muncul di kasir. Jendela dibuka SEGERA (sinkron,
+    // supaya tidak diblokir popup blocker) lalu diarahkan ke WA setelah simpan selesai / timeout.
+    // Pesan WA tetap jalur utama: kalau simpan gagal/lambat, WA tetap terbuka.
+    let w=null;
+    try{ w=window.open("","_blank"); }catch(e){}
+    const btn=$("#sendWaBtn");
+    if(btn) btn.disabled=true;
+    const done=()=>{
+      if(btn) btn.disabled=false;
+      if(w && !w.closed){ try{ w.location.href=url; return; }catch(e){} }
+      location.href=url;
+    };
+    Promise.race([ savePesananOnline(nama, items, orderTipe), new Promise(r=>setTimeout(r,3000)) ]).then(done,done);
   }
   async function savePesananOnline(nama, items, tipe){
     try{
