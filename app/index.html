@@ -694,6 +694,12 @@
               <button class="btn primary" id="closingBtn">Closing Shift</button>
             </div>
           </div>
+          <div class="card card-p admin-only" style="margin-bottom:16px" id="modalUsahaCard">
+            <div class="acc-bar"><div class="section-title" style="margin:0">💼 Modal Usaha</div><div class="spacer"></div><button class="btn sm primary" id="modalUsahaBtn" type="button">+ Catat Modal</button></div>
+            <p style="color:var(--muted);font-size:12px;margin:6px 0 10px">Uang modal yang kamu setor ke usaha. Tidak mengubah hitungan laci kasir, tapi masuk ke pembukuan (Neraca &amp; Arus Kas).</p>
+            <div class="kv"><span>Total modal usaha</span><strong class="mono" id="modalUsahaTotal">Rp0</strong></div>
+            <div class="mini-list" id="modalUsahaList" style="margin-top:8px"></div>
+          </div>
           <div class="card card-p" style="margin-bottom:16px">
             <div class="section-title">Mutasi Kas Hari Ini</div>
             <div class="mini-list" id="cashMoves"></div>
@@ -2436,6 +2442,7 @@
 
   /* ================= CASH MANAGEMENT ================= */
   function renderKas(){
+    renderModalUsaha();
     const cs=cashSummary();
     const rows=[
       ["Opening Cash (modal awal)", cs.opening, ""],
@@ -2501,6 +2508,46 @@
     </div>`;
     setTimeout(()=>{ try{ window.print(); }catch(e){ toast("Dialog cetak tidak tersedia","bad"); } },50);
   }
+  function renderModalUsaha(){
+    const tot=$("#modalUsahaTotal"); if(!tot) return;
+    const list=(S.acc.modal||[]).slice().sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+    tot.textContent=rp(sumBy(list,m=>m.amount));
+    $("#modalUsahaList").innerHTML = list.length ? list.map(m=>`
+      <div class="mini-row">
+        <span>${fmtD(m.date)} · ${esc(m.note||"Modal usaha")}<br><span style="color:var(--muted);font-size:11.5px">${esc(accName(m.account||"1-100"))}</span></span>
+        <span style="text-align:right"><span class="mono">${rp(m.amount)}</span><br><button class="btn sm danger" data-modaldel="${esc(m.id)}" type="button" style="margin-top:4px">Hapus</button></span>
+      </div>`).join("") : `<div class="empty">Belum ada modal usaha tercatat</div>`;
+  }
+  function modalUsahaModal(){
+    const opts=(S.acc.cashbank||[{code:"1-100",name:"Kas Toko"}]).map(k=>`<option value="${esc(k.code)}">${esc(k.name)}</option>`).join("");
+    modal({title:"Catat Modal Usaha",okText:"Simpan",
+      bodyHTML:`<p class="acc-note" style="margin:0 0 10px">Uang yang kamu masukkan sebagai modal awal atau tambahan modal usaha. Otomatis tercatat di jurnal: kas/bank bertambah, Modal Disetor bertambah.</p>
+        <div class="field"><label>Nominal (Rp)</label><input class="input mono" id="muAmt" type="number" min="0" value="0"></div>
+        <div class="field"><label>Tanggal</label><input class="input" id="muDate" type="date" value="${todayStr()}"></div>
+        <div class="field"><label>Disimpan di</label><select class="input" id="muAcc">${opts}</select></div>
+        <div class="field"><label>Keterangan</label><input class="input" id="muNote" value="Modal awal usaha"></div>`,
+      onOk:()=>{
+        const amt=Math.round(+$("#muAmt").value||0); if(amt<=0){ toast("Nominal tidak valid","bad"); return false; }
+        const date=$("#muDate").value||todayStr();
+        if(accLocked(date)){ toast("Periode akuntansi sudah ditutup s/d "+S.acc.closedUntil,"bad"); return false; }
+        if(!S.acc.modal) S.acc.modal=[];
+        const m={id:uid(),date,amount:amt,account:$("#muAcc").value||"1-100",note:$("#muNote").value.trim()||"Modal usaha"};
+        S.acc.modal.push(m);
+        audit("Modal usaha", rp(amt)+" · "+m.note+" ("+date+")");
+        save(); renderKas(); toast("Modal usaha "+rp(amt)+" dicatat","good");
+      }});
+  }
+  $("#modalUsahaBtn").addEventListener("click",modalUsahaModal);
+  $("#modalUsahaList").addEventListener("click",e=>{
+    const b=e.target.closest("[data-modaldel]"); if(!b) return;
+    const m=(S.acc.modal||[]).find(x=>x.id===b.dataset.modaldel); if(!m) return;
+    if(accLocked(m.date)){ toast("Periode akuntansi sudah ditutup s/d "+S.acc.closedUntil,"bad"); return; }
+    confirmAsk("Hapus catatan modal usaha "+rp(m.amount)+" ("+fmtD(m.date)+")? Jurnalnya ikut hilang.",()=>{
+      S.acc.modal=S.acc.modal.filter(x=>x.id!==m.id);
+      audit("Hapus modal usaha", rp(m.amount)+" · "+(m.note||"-"));
+      save(); renderKas(); toast("Catatan modal dihapus","good");
+    },"Hapus");
+  });
   function cashMoveModal(type){
     const label={IN:"Cash In",OUT:"Cash Out",TRANSFER:"Transfer Kas"}[type];
     modal({title:label,okText:"Simpan",
@@ -3855,6 +3902,7 @@
       else if(m.type==="OUT") P(d,"CO","Kas keluar · "+(m.note||"-"),"cashmove",[{code:"6-100",d:m.amount,c:0},{code:"1-100",d:0,c:m.amount}]);
       else P(d,"TF","Transfer kas ke bank · "+(m.note||"-"),"cashmove",[{code:"1-110",d:m.amount,c:0},{code:"1-100",d:0,c:m.amount}]);
     });
+    (S.acc.modal||[]).forEach(m=>{ if(m.date) P(m.date,"CI","Modal usaha · "+(m.note||"-"),"cashmove",[{code:m.account||"1-100",d:m.amount,c:0},{code:"3-100",d:0,c:m.amount}]); });
     (S.acc.assets||[]).forEach(a=>{ P(a.acquireDate,"ASET","Perolehan aset · "+a.name,"asset",[{code:"1-500",d:a.cost,c:0},{code:a.payAccount||"1-110",d:0,c:a.cost}]); });
     (S.acc.purchases||[]).forEach(p=>{
       const lines=[{code:"1-130",d:p.subtotal,c:0}];
