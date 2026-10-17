@@ -1945,7 +1945,7 @@
     setTimeout(()=>{ try{ window.print(); }catch(e){ toast("Dialog cetak tidak tersedia di sini","bad"); } },50);
   }
   let btPairedDevices=[];
-  async function btPrinterScan(){
+  async function btPrinterScan(onPicked){
     if(!btPrintPlugin){ toast("Fitur ini cuma tersedia di aplikasi APK, bukan di browser","bad"); return; }
     try{
       const r=await btPrintPlugin.listPaired();
@@ -1966,11 +1966,12 @@
           toast("Printer "+(dev&&dev.name||addr)+" dipilih","good");
           renderSetting();
           closeModal();
+          if(typeof onPicked==="function") onPicked();
         }));
       },30);
     }catch(e){ toast("Gagal membaca daftar printer: "+(e&&e.message||"coba lagi")+". Pastikan Bluetooth menyala & izin sudah diberikan.","bad"); }
   }
-  $("#btPrinterScanBtn").addEventListener("click",btPrinterScan);
+  $("#btPrinterScanBtn").addEventListener("click",()=>btPrinterScan());
   $("#btPrinterTestBtn").addEventListener("click",()=>{
     if(!btPrintPlugin){ toast("Fitur ini cuma tersedia di aplikasi APK, bukan di browser","bad"); return; }
     if(!S.settings.btPrinterAddress){ toast("Pilih printer dulu","bad"); return; }
@@ -2112,11 +2113,18 @@
     modal({title:(t.type==="RETUR"?"Struk Retur — ":"Struk — ")+t.id, okText:"Cetak / PDF",
       bodyHTML:`<div class="receipt-frame" id="receiptFrame">${receiptHTML(t)}</div>
         <div class="row-flex" style="margin-top:10px;flex-wrap:wrap">
+          <button class="btn sm primary" type="button" id="btReceiptBtn" style="flex:1 1 100%">🖨️ Cetak via Bluetooth</button>
           <button class="btn sm" type="button" id="shareReceiptBtn" style="flex:1;min-width:120px">💾 Simpan Gambar</button>
           <button class="btn sm" type="button" id="shareWaBtn" style="flex:1;min-width:120px;background:#25D366;color:#fff;border-color:#25D366">💬 Kirim ke WhatsApp</button>
         </div>`,
       onOk:()=>{ printReceipt(t); }});
     setTimeout(()=>{
+      const bt=$("#btReceiptBtn");
+      if(bt) bt.addEventListener("click",()=>{
+        if(!btPrintPlugin){ toast("Cetak Bluetooth langsung hanya ada di aplikasi APK. Di browser pakai tombol Cetak / PDF.","bad"); return; }
+        if(!S.settings.btPrinterAddress){ btPrinterScan(()=>printReceiptBluetooth(t)); return; }
+        printReceiptBluetooth(t);
+      });
       const b=$("#shareReceiptBtn");
       if(b) b.addEventListener("click",()=>{ const el=$("#receiptFrame .receipt"); if(el) shareReceiptImage(el, t.id); });
       const w=$("#shareWaBtn");
