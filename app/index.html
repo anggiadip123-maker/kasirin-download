@@ -220,6 +220,8 @@
   /* ================= Dashboard ================= */
   .kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-bottom:26px}
   .kpi{background:var(--surface);padding:16px 16px 15px;display:flex;flex-direction:column;gap:7px}
+  .kpi-grid.k4{grid-template-columns:repeat(4,1fr);margin-top:-12px}
+  .kpi-grid[hidden]{display:none}
   .kpi .k-label{font-size:10px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--faint)}
   .kpi .k-value{font-family:"Instrument Sans",sans-serif;font-weight:800;font-size:22px;letter-spacing:-.01em;line-height:1.12}
   .kpi .k-value.c-green{color:var(--good)}
@@ -443,6 +445,7 @@
   /* ================= Responsive ================= */
   @media (max-width:1080px){
     .kpi-grid{grid-template-columns:repeat(3,1fr)}
+    .kpi-grid.k4{grid-template-columns:repeat(2,1fr)}
     .pos{grid-template-columns:1fr}
     .cart{position:static}
     .grid-2,.ledger,.set-grid{grid-template-columns:1fr}
@@ -462,6 +465,7 @@
     #userName{max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     #userRole{display:none}
     .kpi-grid{grid-template-columns:repeat(2,1fr)}
+    .kpi-grid.k4{grid-template-columns:repeat(2,1fr)}
     .report-grid{grid-template-columns:1fr}
     .tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
     .tab{flex:none}
@@ -611,6 +615,8 @@
         <button class="btn sm" id="sendDailyReportBtn" type="button">📊 Kirim Laporan Hari Ini</button>
       </div>
       <div class="kpi-grid" id="kpiGrid"></div>
+      <div class="kpi-grid k4" id="kpiGridProfit" hidden></div>
+      <div id="hppNag"></div>
       <div class="card card-p" style="margin-bottom:18px">
         <div class="section-title">Penjualan 7 Hari Terakhir</div>
         <div id="trendChart"></div>
@@ -1350,6 +1356,20 @@
   function txToday(){ return S.transactions.filter(t=>isToday(t.time)); }
   function txRange(from,to){ return S.transactions.filter(t=>{ const d=(t.time||"").slice(0,10); return (!from||d>=from) && (!to||d<=to); }); }
   function sumBy(arr,f){ return arr.reduce((a,b)=>a+f(b),0); }
+  // Omzet / modal (HPP) / profit dari barang yang benar-benar terjual. HPP diambil dari data produk
+  // (sama seperti jurnal akuntansi: produk tanpa HPP dianggap 60% harga jual). Retur otomatis
+  // mengurangi karena qty & nilainya negatif. Profit dihitung tanpa pajak.
+  function itemCost(i){ const p=S.products.find(x=>x.id===i.id); return (p&&p.cost)||Math.round((i.price||0)*0.6); }
+  function salesStats(list){
+    let omzet=0, rev=0, cogs=0;
+    list.forEach(t=>{
+      omzet+=t.total||0;
+      rev+=((t.subtotal||0)-(t.discount||0))+(t.service||0);
+      (t.items||[]).forEach(i=>{ cogs+=itemCost(i)*(i.qty||0); });
+    });
+    const profit=rev-cogs;
+    return {omzet,rev,cogs,profit,margin:rev>0?profit/rev*100:0};
+  }
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
   function downloadCSV(name,rows){
     const csv=rows.map(r=>r.map(c=>{ const s=String(c==null?"":c); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; }).join(",")).join("\r\n");
@@ -1457,6 +1477,35 @@
         <div class="k-value num ${k.cls}">${k.val}</div>
         <div class="k-sub">${k.sub}</div>
       </div>`).join("");
+    const gp=$("#kpiGridProfit");
+    if(gp){
+      if(can("laporan")){
+        const mStart=todayStr().slice(0,7)+"-01";
+        const txM=txRange(mStart,todayStr());
+        const nSaleM=txM.filter(t=>t.type!=="RETUR").length;
+        const sd=salesStats(tx), sm=salesStats(txM);
+        const ar=arList(), kasbon=sumBy(ar,x=>x.sisa);
+        const pc=v=>v<0?"c-bad":"c-green";
+        const mg=v=>(Math.round(v*10)/10).toFixed(1).replace(".",",")+"%";
+        gp.hidden=false;
+        gp.innerHTML=[
+          {label:"Profit Hari Ini",val:rp(sd.profit),sub:"Modal "+rp(sd.cogs)+" · margin "+mg(sd.margin),cls:pc(sd.profit)},
+          {label:"Omzet Bulan Ini",val:rp(sm.omzet),sub:nSaleM+" transaksi bulan ini",cls:"c-blue"},
+          {label:"Profit Bulan Ini",val:rp(sm.profit),sub:"Modal "+rp(sm.cogs)+" · margin "+mg(sm.margin),cls:pc(sm.profit)},
+          {label:"Kasbon (Piutang)",val:rp(kasbon),sub:ar.length?ar.length+" belum lunas":"semua lunas",cls:kasbon>0?"c-bad":""},
+        ].map(k=>`
+          <div class="kpi">
+            <div class="k-label">${k.label}</div>
+            <div class="k-value num ${k.cls}">${k.val}</div>
+            <div class="k-sub">${k.sub}</div>
+          </div>`).join("");
+      } else { gp.hidden=true; gp.innerHTML=""; }
+    }
+    const hn=$("#hppNag");
+    if(hn){
+      const noCost=can("laporan") ? S.products.filter(p=>p.active!==false && !p.cost) : [];
+      hn.innerHTML = noCost.length ? `<div class="nag" style="margin-top:-6px;margin-bottom:18px"><div class="nag-txt"><strong>${noCost.length} produk belum diisi HPP / Modal</strong> (${noCost.slice(0,3).map(p=>esc(p.name)).join(", ")}${noCost.length>3?" dll":""}). Profit memakai perkiraan modal 60% untuk produk ini. Isi di Produk &amp; Stok supaya profit akurat.</div></div>` : "";
+    }
     renderTrend();
 
     const map={};
@@ -2870,12 +2919,14 @@
       const cIn=sumBy(S.cashMoves.filter(m=>inRange(m.time)&&m.type==="IN"),m=>m.amount);
       const cOut=sumBy(S.cashMoves.filter(m=>inRange(m.time)&&(m.type==="OUT"||m.type==="TRANSFER")),m=>m.amount);
       const cashS=sumBy(tx,t=>splitAmt(t,"CASH"))+sumBy(retur,t=>splitAmt(t,"CASH"));
+      const st=salesStats(all);
       B.innerHTML=`<div class="report-grid">
         <div class="rep-card"><h4>Penjualan (${rangeLbl})</h4><div class="rep-big num">${rp(net)}</div><div class="split"><span>Penjualan kotor</span><span class="mono">${rp(gross)}</span></div><div class="split"><span>Retur</span><span class="mono">${rp(returV)}</span></div><div class="split"><span>Transaksi</span><span class="mono">${tx.length}${retur.length?" (+"+retur.length+" retur)":""}</span></div></div>
         <div class="rep-card"><h4>Diskon &amp; Pajak</h4><div class="rep-big num">${rp(tax)}</div><div class="split"><span>Total diskon</span><span class="mono">${rp(disc)}</span></div><div class="split"><span>Total pajak (PPN)</span><span class="mono">${rp(tax)}</span></div><div class="split"><span>Produk terjual</span><span class="mono">${qty}</span></div></div>
+        <div class="rep-card"><h4>Laba (${rangeLbl})</h4><div class="rep-big num">${rp(st.profit)}</div><div class="split"><span>Penjualan bersih (tanpa pajak)</span><span class="mono">${rp(st.rev)}</span></div><div class="split"><span>Modal barang terjual (HPP)</span><span class="mono">${rp(st.cogs)}</span></div><div class="split"><span>Margin</span><span class="mono">${(Math.round(st.margin*10)/10).toFixed(1).replace(".",",")}%</span></div></div>
         <div class="rep-card"><h4>Kas &amp; Bank</h4><div class="rep-big num">${rp(cashS)}</div><div class="split"><span>Cash sales (net)</span><span class="mono">${rp(cashS)}</span></div><div class="split"><span>Cash in</span><span class="mono">${rp(cIn)}</span></div><div class="split"><span>Cash out / transfer</span><span class="mono">${rp(cOut)}</span></div></div>
       </div>`;
-      repCSV=[["Ringkasan",rangeLbl],["Penjualan bersih",net],["Penjualan kotor",gross],["Retur",returV],["Jumlah transaksi",tx.length],["Jumlah retur",retur.length],["Total diskon",disc],["Total pajak",tax],["Produk terjual",qty],["Cash sales (net)",cashS],["Cash in",cIn],["Cash out/transfer",cOut]];
+      repCSV=[["Ringkasan",rangeLbl],["Penjualan bersih",net],["Penjualan kotor",gross],["Retur",returV],["Jumlah transaksi",tx.length],["Jumlah retur",retur.length],["Total diskon",disc],["Total pajak",tax],["Produk terjual",qty],["Penjualan bersih tanpa pajak",st.rev],["Modal barang terjual (HPP)",st.cogs],["Laba",st.profit],["Cash sales (net)",cashS],["Cash in",cIn],["Cash out/transfer",cOut]];
       repTitle="ringkasan";
     }
     else if(repTab==="kasir"){
