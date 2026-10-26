@@ -4616,6 +4616,9 @@
     try{
       if(!mataBosApp) mataBosApp = (firebase.apps && firebase.apps.length) ? firebase.apps[0] : firebase.initializeApp(FIREBASE_CONFIG);
       mataBosDb = firebase.firestore();
+      // Di sebagian jaringan/WebView koneksi real-time (WebChannel) tertahan sehingga data baru baru datang
+      // setelah refresh. Auto-detect long polling membuatnya jatuh ke mode yang lebih tahan.
+      try{ mataBosDb.settings({experimentalAutoDetectLongPolling:true, merge:true}); }catch(e){}
       if(!mataBosAuthP) mataBosAuthP = firebase.auth().signInAnonymously();
       await mataBosAuthP;
       return mataBosDb;
@@ -4769,7 +4772,31 @@
      berkurang pas kasir konfirmasi bayar (commitSale), bukan pas pesanan diterima --
      supaya kasir masih bisa cek ketersediaan riil dulu. */
   let pesananOnlineUnsub=null, pesananOnlineList=[], pesananOnlineSeenIds=null;
-  function detachPesananOnline(){ if(pesananOnlineUnsub){ try{ pesananOnlineUnsub(); }catch(e){} pesananOnlineUnsub=null; } pesananOnlineSeenIds=null; }
+  let pesananOnlinePoll=null;
+  function detachPesananOnline(){ if(pesananOnlineUnsub){ try{ pesananOnlineUnsub(); }catch(e){} pesananOnlineUnsub=null; } if(pesananOnlinePoll){ clearInterval(pesananOnlinePoll); pesananOnlinePoll=null; } pesananOnlineSeenIds=null; }
+  function applyPesananSnap(snap){
+    pesananOnlineList = snap.docs.map(d=>Object.assign({id:d.id}, d.data())).filter(o=>o.status==="baru");
+    const ids=new Set(pesananOnlineList.map(o=>o.id));
+    if(pesananOnlineSeenIds){
+      const isNew=[...ids].some(id=>!pesananOnlineSeenIds.has(id));
+      if(isNew) notifyNewPesanan();
+    }
+    pesananOnlineSeenIds=ids;
+    renderPesananOnline();
+    renderNotifBadge();
+  }
+  // Cadangan kalau koneksi real-time tertahan: cek ulang tiap 15 detik selama aplikasi terbuka, dan langsung
+  // saat aplikasi kembali dibuka/dilihat. Memakai handler yang sama, jadi tidak ada notifikasi ganda.
+  async function pollPesananOnline(){
+    if(!S.settings.katalogEnabled || document.hidden) return;
+    const storeKey=getStoreLicenseKey(); if(!storeKey) return;
+    try{
+      const db=await initFirebase(); if(!db) return;
+      const snap=await db.collection("katalogToko").doc(storeKey).collection("pesanan").orderBy("createdAt","desc").limit(50).get({source:"server"});
+      applyPesananSnap(snap);
+    }catch(e){ /* diam-diam */ }
+  }
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden) pollPesananOnline(); });
   // Didengarkan GLOBAL (bukan cuma selagi di layar Kasir) supaya badge lonceng di topbar bisa
   // kelihatan dari halaman mana saja -- lihat pemanggilannya di init app & toggle Katalog Online.
   async function listenPesananOnline(){
@@ -4779,17 +4806,8 @@
     try{
       pesananOnlineUnsub = db.collection("katalogToko").doc(storeKey).collection("pesanan")
         .orderBy("createdAt","desc").limit(50)
-        .onSnapshot(snap=>{
-          pesananOnlineList = snap.docs.map(d=>Object.assign({id:d.id}, d.data())).filter(o=>o.status==="baru");
-          const ids=new Set(pesananOnlineList.map(o=>o.id));
-          if(pesananOnlineSeenIds){
-            const isNew=[...ids].some(id=>!pesananOnlineSeenIds.has(id));
-            if(isNew) notifyNewPesanan();
-          }
-          pesananOnlineSeenIds=ids;
-          renderPesananOnline();
-          renderNotifBadge();
-        }, ()=>{ /* gagal diam-diam -- tidak mengganggu kerja kasir */ });
+        .onSnapshot(applyPesananSnap, ()=>{ /* gagal diam-diam -- tidak mengganggu kerja kasir */ });
+      if(!pesananOnlinePoll) pesananOnlinePoll=setInterval(pollPesananOnline,15000);
     }catch(e){ /* diam-diam */ }
   }
   function renderNotifBadge(){
